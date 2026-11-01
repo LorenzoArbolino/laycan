@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import calibration from "../../../../params/calibration.json";
+import calibration from "../../../../params/calibration.json" with { type: "json" };
 import { assumptionRows } from "../../src/params/assumptions";
 import { MODEL, SCENARIOS } from "../../src/params/model";
 import { findUnlabelled, isParam } from "../../src/params/param";

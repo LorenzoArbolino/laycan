@@ -2,7 +2,7 @@
  * The physical world: hubs, vessel classes, chokepoints and routes.
  * Distances come from params/calibration.json (searoute on the Eurostat MARNET network).
  */
-import calibration from "../../../../params/calibration.json";
+import calibration from "../../../../params/calibration.json" with { type: "json" };
 import { est, type Param } from "../params/param";
 import type { ProductId } from "../core/units";
 

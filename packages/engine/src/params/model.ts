@@ -3,7 +3,7 @@
  * labelled estimates for what public data cannot pin down. Scenario files override some
  * of these (levels, regime means) but never remove provenance.
  */
-import calibration from "../../../../params/calibration.json";
+import calibration from "../../../../params/calibration.json" with { type: "json" };
 import type { ProductId } from "../core/units";
 import type { HubId, VesselClass } from "../world/world";
 import { derived, est, type Param } from "./param";

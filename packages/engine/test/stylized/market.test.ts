@@ -3,7 +3,7 @@
  * (params/targets.json, computed by calibration/fit.py from EIA daily prices).
  */
 import { describe, expect, it } from "vitest";
-import targets from "../../../../params/targets.json";
+import targets from "../../../../params/targets.json" with { type: "json" };
 import { MODEL } from "../../src/params/model";
 import { acf, ar1HalfLife, corr, excessKurtosis, simulate, parity } from "./helpers";
 

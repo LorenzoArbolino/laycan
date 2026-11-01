@@ -18,7 +18,9 @@ Games are seeded and deterministic: the same seed and the same actions give iden
 ```bash
 npm install
 npm test                 # unit, property, stylized-fact, sanity and golden tests
-npm run dev              # web app
+npm run dev              # web app (http://localhost:5173)
+npm run build            # static build in apps/web/dist, deployable to any static host
+npm run e2e              # browser end-to-end tests (Playwright, Chromium)
 npm run play -- --scenario now_2026_11 --seed 42      # command-line game
 npx tsx packages/cli/src/main.ts assumptions > assumptions.md   # assumptions sheet
 ```

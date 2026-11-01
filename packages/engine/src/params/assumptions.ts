@@ -2,7 +2,7 @@
  * The assumptions sheet: every parameter the engine uses, with its value, unit, label,
  * source and method. Generated from the code and calibration file, so it cannot drift.
  */
-import calibration from "../../../../params/calibration.json";
+import calibration from "../../../../params/calibration.json" with { type: "json" };
 import { CHOKEPOINT_INFO, VESSELS } from "../world/world";
 import { MODEL, SCENARIOS } from "./model";
 import { collectParams, type Param } from "./param";
