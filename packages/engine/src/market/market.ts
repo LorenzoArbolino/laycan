@@ -19,6 +19,8 @@ import { dayOfYear, isBusinessDay } from "../core/calendar";
 import { Rng } from "../core/rng";
 import { PRODUCTS, type ProductId } from "../core/units";
 import { MODEL, REGIMES, type Regime, type Scenario } from "../params/model";
+import { replayRows, type ReplayRow } from "../params/episodes";
+import { parseDate } from "../core/calendar";
 import {
   CHOKEPOINTS,
   HUBS,
@@ -38,7 +40,8 @@ export type EffectTarget =
   | { kind: "crack"; product: ProductId }
   | { kind: "diff"; hub: HubId; product: ProductId }
   | { kind: "tce"; cls: VesselClass }
-  | { kind: "structure"; key: StructKey };
+  | { kind: "structure"; key: StructKey }
+  | { kind: "stocks"; product: ProductId };
 
 /** A decaying shift to a long-run mean, caused by an event. */
 export interface Effect {
@@ -58,6 +61,8 @@ export interface MarketState {
   diffs: Record<HubId, Record<ProductId, number>>;
   tce: Record<VesselClass, number>;
   structure: Record<StructKey, number>;
+  /** inventories vs 5-year seasonal average, % (positive = surplus) */
+  stocks: Record<ProductId, number>;
   choke: Record<ChokepointId, ChokeState>;
   effects: Effect[];
 }
@@ -70,6 +75,8 @@ export interface MarketConfig {
   /** for analysis and tests: hold the regime / chokepoints fixed */
   freezeRegime?: boolean;
   freezeChoke?: boolean;
+  /** historical replay: benchmark data by epoch day */
+  replay?: Record<number, ReplayRow>;
 }
 
 export function cholesky(a: number[][]): number[][] {
@@ -100,7 +107,13 @@ export function makeConfig(scenario: Scenario): MarketConfig {
   }
   const chol = {} as MarketConfig["chol"];
   for (const r of REGIMES) chol[r] = cholesky(MODEL.correlation[r].value);
-  return { scenario, crackMean, nyhMean, chol };
+  const cfg: MarketConfig = { scenario, crackMean, nyhMean, chol };
+  if (scenario.replay) {
+    cfg.replay = {};
+    for (const row of replayRows(scenario.replay)) cfg.replay[parseDate(row.t)] = row;
+    cfg.freezeRegime = true;
+  }
+  return cfg;
 }
 
 export function freightInputs(m: MarketState, cfg: MarketConfig): FreightInputs {
@@ -155,6 +168,7 @@ export function initMarket(scenario: Scenario, cfg: MarketConfig, startDay: numb
     diffs: emptyHubTable(),
     tce: { MR: scenario.freight.MR.value, LR1: scenario.freight.LR1.value, LR2: scenario.freight.LR2.value },
     structure: { brent: scenario.structure.brent.value, gasoline: scenario.structure.gasoline.value, diesel: scenario.structure.diesel.value, jet: scenario.structure.jet.value },
+    stocks: { gasoline: scenario.stocks.gasoline.value, diesel: scenario.stocks.diesel.value, jet: scenario.stocks.jet.value },
     choke: { ...scenario.choke },
     effects: [],
   };
@@ -212,10 +226,10 @@ export function stepMarket(m: MarketState, cfg: MarketConfig, rng: Rng): MarketS
   const ri = REGIMES.indexOf(m.regime);
   const u = rng.uniform();
   let acc = 0;
-  const row = T[ri]!;
+  const trow = T[ri]!;
   let next = m.regime;
-  for (let j = 0; j < row.length; j++) {
-    acc += row[j]!;
+  for (let j = 0; j < trow.length; j++) {
+    acc += trow[j]!;
     if (u < acc) {
       next = REGIMES[j]!;
       break;
@@ -229,7 +243,8 @@ export function stepMarket(m: MarketState, cfg: MarketConfig, rng: Rng): MarketS
 
   // Chokepoints
   for (const c of CHOKEPOINTS) {
-    const tr = cfg.freezeChoke ? {} : (cfg.scenario.chokeTransition[c].value[m.choke[c]] ?? {});
+    const table = cfg.scenario.chokeTransitionByRegime?.[m.regime] ?? cfg.scenario.chokeTransition;
+    const tr = cfg.freezeChoke ? {} : (table[c].value[m.choke[c]] ?? {});
     const v = rng.uniform();
     let a = 0;
     for (const [to, p] of Object.entries(tr)) {
@@ -262,8 +277,18 @@ export function stepMarket(m: MarketState, cfg: MarketConfig, rng: Rng): MarketS
   // Mean reversion of log price towards the regime level, with the volatility (Itô) correction
   // so that the price level, not just the log, tracks the target in high-volatility regimes.
   ret += B.levelKappa.value * (log(B.level[r].value) - log(m.brent)) + 0.5 * vm * vm * m.brentH;
-  m.brentH = B.omega.value + B.alpha.value * diffusive * diffusive + B.beta.value * m.brentH;
-  m.brent = Math.max(5, m.brent * exp(ret));
+  const row = cfg.replay?.[m.day];
+  if (cfg.replay) {
+    // Replay: Brent follows the data; the variance filter still updates (for risk metrics)
+    if (row) {
+      const realised = log(row.b / m.brent) / vm;
+      m.brentH = B.omega.value + B.alpha.value * realised * realised + B.beta.value * m.brentH;
+      m.brent = row.b;
+    }
+  } else {
+    m.brentH = B.omega.value + B.alpha.value * diffusive * diffusive + B.beta.value * m.brentH;
+    m.brent = Math.max(5, m.brent * exp(ret));
+  }
 
   // Cracks. Historical crack jumps (hurricanes, outages) hit products together, so jumps are a
   // common shock with product-specific scale plus a smaller idiosyncratic part.
@@ -276,8 +301,21 @@ export function stepMarket(m: MarketState, cfg: MarketConfig, rng: Rng): MarketS
     let x = m.cracks[p];
     x += cp.kappa.value * (mu - x) + cp.sigma.value * sw * (z[i + 1] ?? 0);
     if (jumpDay) x += 0.8 * common * cp.jumpScale.value + rng.laplace(0.2 * cp.jumpScale.value);
-    m.cracks[p] = x;
+    if (!cfg.replay) m.cracks[p] = x;
   });
+  if (row) m.cracks = { gasoline: row.g, diesel: row.d, jet: row.j };
+
+  // Inventories (vs 5-year average): OU around zero plus event shifts; data in replays
+  const ST = MODEL.stocks;
+  for (const p of PRODUCTS) {
+    const target = effectShift(m, (t) => t.kind === "stocks" && t.product === p);
+    m.stocks[p] += ST.kappa.value * (target - m.stocks[p]) + ST.sigma.value * rng.normal();
+  }
+  if (row) {
+    if (row.sg !== null) m.stocks.gasoline = row.sg;
+    if (row.sd !== null) m.stocks.diesel = row.sd;
+    if (row.sj !== null) m.stocks.jet = row.sj;
+  }
 
   // Freight (log TCE per class)
   const F = MODEL.freight;
@@ -298,7 +336,8 @@ export function stepMarket(m: MarketState, cfg: MarketConfig, rng: Rng): MarketS
   // Curve structure
   const S = MODEL.structure;
   for (const k of STRUCT_KEYS) {
-    const mu = S.mean[r][k].value + effectShift(m, (t) => t.kind === "structure" && t.key === k);
+    const stock = k === "brent" ? (m.stocks.gasoline + m.stocks.diesel + m.stocks.jet) / 3 : m.stocks[k];
+    const mu = S.mean[r][k].value - MODEL.stocks.structureSlope.value * stock + effectShift(m, (t) => t.kind === "structure" && t.key === k);
     m.structure[k] += S.kappa.value * (mu - m.structure[k]) + S.sigma.value * rng.normal();
   }
 
@@ -328,6 +367,10 @@ export function stepMarket(m: MarketState, cfg: MarketConfig, rng: Rng): MarketS
     }
     m.diffs[a.hub][a.product] = d;
   }
+  if (row) {
+    m.diffs.NYH.gasoline = row.ng;
+    m.diffs.NYH.diesel = row.nd;
+  }
   return news;
 }
 
@@ -338,13 +381,14 @@ export interface PriceRow {
   cracks: Record<ProductId, number>;
   diffs: Record<HubId, Record<ProductId, number>>;
   structure: Record<StructKey, number>;
+  stocks: Record<ProductId, number>;
   tce: Record<VesselClass, number>;
   regime: Regime;
   choke: Record<ChokepointId, ChokeState>;
 }
 
 export function priceRow(m: MarketState): PriceRow {
-  return structuredClone({ day: m.day, brent: m.brent, cracks: m.cracks, diffs: m.diffs, structure: m.structure, tce: m.tce, regime: m.regime, choke: m.choke });
+  return structuredClone({ day: m.day, brent: m.brent, cracks: m.cracks, diffs: m.diffs, structure: m.structure, stocks: m.stocks, tce: m.tce, regime: m.regime, choke: m.choke });
 }
 
 export function rowPrice(row: PriceRow, hub: HubId, p: ProductId): number {

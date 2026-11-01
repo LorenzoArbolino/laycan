@@ -48,16 +48,19 @@ import {
   type MarketState,
   type PriceRow,
 } from "./market/market";
-import { MODEL, SCENARIOS, type Scenario } from "./params/model";
+import { MODEL, SCENARIOS, type Scenario, type ScriptedEvent } from "./params/model";
+import { makeGeneratedScenario } from "./params/generated";
+import { EPISODES, makeHistoricalScenario } from "./params/episodes";
 import { CHOKEPOINT_INFO, VESSELS, routeById, type HubId } from "./world/world";
 
-export const STORAGE_FEE_PER_BBL_MONTH = 0.45;
+export const DAYS_PER_MONTH = 30.4375;
 export const MARGIN_PCT = { normal: 0.08, stressed: 0.12, war: 0.14 } as const;
 export const BORROWING_BASE_ADVANCE = 0.8;
 export const PENALTY = { failToLift: 2, failToDeliver: 3, late: 0.5 } as const;
 
 export interface GameOptions {
-  scenario: string;
+  /** "generated" (default), a historical episode id, or a snapshot scenario id */
+  scenario?: string;
   seed: string;
   weeks?: number;
 }
@@ -74,6 +77,8 @@ export interface GameState {
   version: 1;
   seed: string;
   scenarioId: string;
+  scenario: Scenario;
+  scriptIdx: number;
   startDay: number;
   endDay: number;
   market: MarketState;
@@ -101,8 +106,10 @@ export type Action =
   | { type: "accept"; offerId: string; charter?: { routeId: string; via?: Voyage["via"] }; voyageId?: string }
   | { type: "charter"; routeId: string; via?: Voyage["via"]; laycanStart: number; product: ProductId; purchaseId?: string; saleId?: string }
   | { type: "futures"; contract: FuturesId; y: number; m: number; lots: number }
-  | { type: "quote"; side: "buy" | "sell"; product: ProductId; hub: HubId; incoterm: "FOB" | "CIF" | "DES" }
-  | { type: "assign"; saleId: string; voyageId: string };
+  | { type: "quote"; side: "buy" | "sell"; product: ProductId; hub: HubId; incoterm: "FOB" | "CIF" | "DES" | "ITT" }
+  | { type: "assign"; saleId: string; voyageId: string }
+  | { type: "lease"; hub: HubId; capacityBbl: number; months: number }
+  | { type: "sellSpot"; cargoId: string; qtyBbl?: number };
 
 export interface ActionResult {
   ok: boolean;
@@ -134,28 +141,36 @@ export class Game {
 
   private constructor(state: GameState) {
     this.state = state;
-    const sc = SCENARIOS[state.scenarioId];
-    if (!sc) throw new Error(`unknown scenario ${state.scenarioId}`);
-    this.scenario = sc;
-    this.cfg = makeConfig(sc);
+    this.scenario = state.scenario;
+    this.cfg = makeConfig(state.scenario);
     this.rMarket = new Rng(state.rng.market);
     this.rEvents = new Rng(state.rng.events);
     this.rCpty = new Rng(state.rng.cpty);
     this.rQuotes = new Rng(state.rng.quotes);
   }
 
+  /** Resolve a scenario id: "generated", a historical episode, or a snapshot scenario. */
+  static scenarioFor(id: string, seed: string): Scenario {
+    if (id === "generated") return makeGeneratedScenario(seed);
+    if (EPISODES.some((e) => e.id === id)) return makeHistoricalScenario(id);
+    const sc = SCENARIOS[id];
+    if (!sc) throw new Error(`unknown scenario ${id}`);
+    return sc;
+  }
+
   static create(opts: GameOptions): Game {
-    const sc = SCENARIOS[opts.scenario];
-    if (!sc) throw new Error(`unknown scenario ${opts.scenario}`);
+    const sc = Game.scenarioFor(opts.scenario ?? "generated", opts.seed);
     const cfg = makeConfig(sc);
     const startDay = parseDate(sc.startDate);
-    const market = initMarket(sc, cfg, startDay);
+    const market = initMarket(sc, cfg, startDay - sc.burnInDays);
     const book = emptyBook(sc.finance.equity.value);
     const s = (n: string) => Rng.stream(opts.seed, n).snapshot();
     const state: GameState = {
       version: 1,
       seed: opts.seed,
       scenarioId: sc.id,
+      scenario: sc,
+      scriptIdx: 0,
       startDay,
       endDay: startDay + 7 * (opts.weeks ?? sc.weeks),
       market,
@@ -178,8 +193,84 @@ export class Game {
       lastEquity: book.cash,
     };
     const g = new Game(state);
+    g.burnIn();
     g.newOffers();
     return g;
+  }
+
+  /**
+   * Run the market from (start − burnInDays) to the start with an empty book, so charts have
+   * history and the opening state is consistent. Generated worlds keep the last month's news
+   * as context; historical replays keep their scripted headlines.
+   */
+  private burnIn() {
+    const st = this.state;
+    if (this.day >= st.startDay) return;
+    st.history = [priceRow(this.market)];
+    while (this.day < st.startDay) {
+      const prev = cloneMarket(this.market);
+      this.marketDay();
+      void prev;
+    }
+    const cutoff = st.startDay - 30;
+    st.news = st.news.filter((n) => n.day >= cutoff || this.scenario.kind === "historical");
+    st.news.push({ day: st.startDay, kind: "market", severity: "info", title: "Trading starts", body: this.scenario.kind === "generated" ? "A generated market: no real date or prices. The charts show the last three months." : "The charts show the run-up to today." });
+    st.pending = emptyAttribution();
+    st.lastEquity = this.equity();
+    st.maxEquity = st.lastEquity;
+  }
+
+  /** One market day: price step, scripted and random events, history. Returns whether it was a business day. */
+  private marketDay(): boolean {
+    const st = this.state;
+    const transitions = stepMarket(this.market, this.cfg, this.rMarket);
+    const biz = isBusinessDay(this.day);
+    const ctx: MacroContext = { m: this.market, cfg: this.cfg, rng: this.rEvents, ports: st.ports, news: st.news, financeShock: st.financeShock };
+    if (biz) {
+      applyTransitions(ctx, transitions);
+      if (this.scenario.randomEvents) drawMacroEvents(ctx);
+    }
+    this.applyScript(ctx);
+    st.financeShock = ctx.financeShock;
+    if (biz) st.history.push(priceRow(this.market));
+    st.ports = st.ports.filter((p) => p.untilDay >= this.day);
+    return biz;
+  }
+
+  private applyScript(ctx: MacroContext) {
+    const script = this.scenario.script ?? [];
+    const st = this.state;
+    while (st.scriptIdx < script.length && parseDate(script[st.scriptIdx]!.date) <= this.day) {
+      this.applyScripted(ctx, script[st.scriptIdx]!);
+      st.scriptIdx++;
+    }
+  }
+
+  private applyScripted(ctx: MacroContext, ev: ScriptedEvent) {
+    const m = this.market;
+    if (ev.regime) m.regime = ev.regime;
+    if (ev.choke) m.choke[ev.choke[0]] = ev.choke[1];
+    if (ev.finance) ctx.financeShock = { lcFeeMult: ev.finance.lcFeeMult, overdraftMult: ev.finance.overdraftMult, untilDay: m.day + ev.finance.days };
+    if (ev.port) ctx.ports.push({ hub: ev.port[0], untilDay: m.day + ev.port[1], extraDays: ev.port[1] });
+    let k = 0;
+    const add = (target: MarketState["effects"][number]["target"], amount: number, hl: number) =>
+      m.effects.push({ id: `sc${m.day}-${k++}-${m.effects.length}`, target, amount, halfLifeDays: hl, startDay: m.day });
+    for (const [key, a, hl] of ev.structure ?? []) add({ kind: "structure", key }, a, hl);
+    for (const [cls, a, hl] of ev.tce ?? []) add({ kind: "tce", cls }, a, hl);
+    for (const [hub, product, a, hl] of ev.diff ?? []) add({ kind: "diff", hub, product }, a, hl);
+    for (const [product, a, hl] of ev.stocks ?? []) add({ kind: "stocks", product }, a, hl);
+    ctx.news.push({ day: m.day, kind: "event", severity: ev.severity ?? "warn", title: ev.title, body: ev.body ?? "" });
+  }
+
+  /** Date label: real dates for snapshots and replays; "Year n" for generated worlds. */
+  displayDate(day = this.day): string {
+    const iso = isoDate(day);
+    const base = this.scenario.displayYearBase;
+    const d = new Date(day * 86_400_000);
+    const mon = d.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
+    if (!base) return `${d.getUTCDate()} ${mon} ${d.getUTCFullYear()}`;
+    void iso;
+    return `${d.getUTCDate()} ${mon}, Year ${d.getUTCFullYear() - base + 1}`;
   }
 
   static fromJSON(json: string): Game {
@@ -329,6 +420,10 @@ export class Game {
         this.state.offers.push(o);
         return { ok: true, message: `Quote received from ${o.cptyName}: index ${o.pricing.diff >= 0 ? "+" : ""}${o.pricing.diff.toFixed(2)} $/bbl.`, id: o.id };
       }
+      case "lease":
+        return this.lease(a.hub, a.capacityBbl, a.months);
+      case "sellSpot":
+        return this.sellSpot(a.cargoId, a.qtyBbl);
       case "assign": {
         const s = this.book.deals.find((d) => d.id === a.saleId && d.side === "sell" && d.status === "open");
         const v = this.book.voyages.find((x) => x.id === a.voyageId);
@@ -377,7 +472,7 @@ export class Game {
     };
     if (d.pricing.kind === "month" && d.pricing.month) d.window = monthBusinessDays(d.pricing.month.y, d.pricing.month.m);
     // Counterparty-performed delivery dates (their vessel): drawn from a stream keyed by the deal id
-    if ((d.side === "buy" && d.incoterm !== "FOB") || (d.side === "sell" && d.incoterm === "FOB")) {
+    if ((d.side === "buy" && d.incoterm !== "FOB") || (d.side === "sell" && (d.incoterm === "FOB" || d.incoterm === "ITT"))) {
       const kr = Rng.stream(this.state.seed, `deal:${d.id}`);
       d.plannedDelivery = d.laycan[0] + kr.int(d.laycan[1] - d.laycan[0] + 1);
     }
@@ -564,17 +659,8 @@ export class Game {
     const st = this.state;
     const e0 = st.lastEquity;
     const prev = cloneMarket(this.market);
-    const transitions = stepMarket(this.market, this.cfg, this.rMarket);
-    const biz = isBusinessDay(this.day);
-    if (biz) {
-      const ctx: MacroContext = { m: this.market, cfg: this.cfg, rng: this.rEvents, ports: st.ports, news: st.news, financeShock: st.financeShock };
-      applyTransitions(ctx, transitions);
-      drawMacroEvents(ctx);
-      st.financeShock = ctx.financeShock;
-      st.history.push(priceRow(this.market));
-    }
+    const biz = this.marketDay();
     addAttribution(this.dayAttr, attributeMarketMove(this.book, prev, this.market));
-    st.ports = st.ports.filter((p) => p.untilDay >= this.day);
 
     this.settleFutures();
     if (biz) this.fixPricing();
@@ -935,7 +1021,7 @@ export class Game {
       c.where = "tank";
       c.voyageId = undefined;
       c.sinceDay = this.day;
-      this.alert(`Cargo ${c.id} into tank at ${v.to}`, `${(c.qty / 1000).toFixed(0)} kbbl ${c.product} stored at ${STORAGE_FEE_PER_BBL_MONTH} $/bbl/month until sold.`, "info");
+      this.alert(`Cargo ${c.id} into tank at ${v.to}`, `${(c.qty / 1000).toFixed(0)} kbbl ${c.product} stored. Leased tankage is used first; anything above it pays spot tankage (${this.spotStorageFee(v.to).toFixed(2)} $/bbl/month).`, "info");
     }
   }
 
@@ -1007,11 +1093,99 @@ export class Game {
     }
   }
 
+  // ---------------------------------------------------------------- storage
+
+  /** Term lease fee at a hub today: base tariff, dearer when contango makes storage valuable. */
+  leaseQuote(hub: HubId): number {
+    const S = MODEL.storage;
+    const contango = Math.max(0, -this.market.structure.diesel, -this.market.structure.gasoline);
+    return S.baseFee[hub].value * (1 + S.contangoPremium.value * contango);
+  }
+
+  spotStorageFee(hub: HubId): number {
+    return this.leaseQuote(hub) * MODEL.storage.spotMultiplier.value;
+  }
+
+  leasedCapacity(hub: HubId): number {
+    return this.book.leases.filter((l) => l.hub === hub && l.startDay <= this.day && this.day < l.endDay).reduce((s, l) => s + l.capacityBbl, 0);
+  }
+
+  tankStock(hub: HubId): number {
+    return this.book.cargoes.filter((c) => c.where === "tank" && c.hub === hub).reduce((s, c) => s + c.qty, 0);
+  }
+
+  private lease(hub: HubId, capacityBbl: number, months: number): ActionResult {
+    if (!(capacityBbl > 0) || !(months >= 1)) return { ok: false, message: "Capacity must be positive and the term at least one month." };
+    const fee = this.leaseQuote(hub);
+    const l = { id: this.id("T"), hub, capacityBbl: Math.round(capacityBbl), feePerBblMonth: fee, startDay: this.day, endDay: this.day + Math.round(months * DAYS_PER_MONTH) };
+    this.book.leases.push(l);
+    return { ok: true, message: `Leased ${(l.capacityBbl / 1000).toFixed(0)} kbbl at ${hub} for ${months} month(s) at ${fee.toFixed(2)} $/bbl/month (take-or-pay: ${((fee * l.capacityBbl) / 1e3).toFixed(0)}k a month).`, id: l.id };
+  }
+
+  /** Sell a parcel from your tank to a merchant now: fixed price at the index less a haircut, paid in 5 days. */
+  private sellSpot(cargoId: string, qtyBbl?: number): ActionResult {
+    const c = this.book.cargoes.find((x) => x.id === cargoId && x.where === "tank");
+    if (!c) return { ok: false, message: "Only cargo in tank can be sold spot." };
+    const qty = Math.min(c.qty, qtyBbl ?? c.qty);
+    const M = hubPrice(this.market, c.hub, c.product);
+    const h = MODEL.storage.spotSaleHaircut.value + c.qualityDiscount;
+    const d: Deal = {
+      id: this.id("S"),
+      side: "sell",
+      cpty: "spot",
+      product: c.product,
+      hub: c.hub,
+      incoterm: "ITT",
+      qtyNominal: qty,
+      qty,
+      tolPct: 0,
+      tolHolder: "cpty",
+      laycan: [this.day, this.day],
+      pricing: { kind: "fixed", diff: -h, fixedPrice: M },
+      payment: { kind: "open", days: 5 },
+      status: "delivered",
+      createdDay: this.day,
+      deliveryDay: this.day,
+      dueDay: this.day + 5,
+      fixings: [],
+      lcOpen: false,
+      defaultRisk: 0,
+      note: "spot sale",
+    };
+    this.post("execution", () => {
+      this.book.deals.push(d);
+      c.qty -= qty;
+      if (c.qty < 1) this.book.cargoes = this.book.cargoes.filter((x) => x !== c);
+    });
+    return { ok: true, message: `Sold ${(qty / 1000).toFixed(0)} kbbl ${c.product} in tank at ${c.hub} for ${(M - h).toFixed(2)} $/bbl (index − ${h.toFixed(2)}).`, id: d.id };
+  }
+
+  /**
+   * Cash-and-carry economics at a hub for a product: what holding a barrel for a month earns
+   * from the curve, against storage and financing. Positive = storage pays.
+   */
+  carry(hub: HubId, product: ProductId) {
+    const spot = hubPrice(this.market, hub, product);
+    const contango = -this.market.structure[product];
+    const storage = this.leaseQuote(hub);
+    const finance = (spot * this.scenario.finance.borrowRate.value) / 12;
+    return { spot, contango, storage, finance, net: contango - storage - finance };
+  }
+
   private carryAndInterest() {
-    for (const c of this.book.cargoes) {
-      if (c.where !== "tank") continue;
+    // Term leases are take-or-pay; tank inventory above leased capacity pays spot tankage.
+    for (const l of this.book.leases) {
+      if (this.day < l.startDay || this.day >= l.endDay) continue;
       this.post("time_spread", () => {
-        this.book.cash -= (c.qty * STORAGE_FEE_PER_BBL_MONTH) / 30.4375;
+        this.book.cash -= (l.capacityBbl * l.feePerBblMonth) / DAYS_PER_MONTH;
+      });
+    }
+    const hubs = new Set(this.book.cargoes.filter((c) => c.where === "tank").map((c) => c.hub));
+    for (const hub of hubs) {
+      const excess = Math.max(0, this.tankStock(hub) - this.leasedCapacity(hub));
+      if (excess <= 0) continue;
+      this.post("time_spread", () => {
+        this.book.cash -= (excess * this.spotStorageFee(hub)) / DAYS_PER_MONTH;
       });
     }
     const f = this.scenario.finance;

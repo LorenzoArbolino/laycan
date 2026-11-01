@@ -24,21 +24,21 @@ describe("golden runs", () => {
     expect(play("now_2026_11")).toMatchInlineSnapshot(`
       {
         "attribution": {
-          "crack": -12711263,
-          "events": -1899846,
-          "execution": -3337537,
-          "finance": -2895311,
-          "flat_price": 5077826,
-          "freight": -79687815,
-          "optionality": -1202848,
-          "quality": -993898,
-          "regional": 47463701,
-          "time_spread": -20720133,
+          "crack": 2123296,
+          "events": -1626951,
+          "execution": -2625584,
+          "finance": -1483801,
+          "flat_price": -14927213,
+          "freight": -40755226,
+          "optionality": 5241722,
+          "quality": 0,
+          "regional": 20792067,
+          "time_spread": -14146055,
         },
-        "deals": 20,
-        "equity": -20907125,
-        "lastBrent": 98.44,
-        "voyages": 10,
+        "deals": 22,
+        "equity": 2592254,
+        "lastBrent": 136.01,
+        "voyages": 11,
       }
     `);
   });
@@ -46,20 +46,20 @@ describe("golden runs", () => {
     expect(play("normal_2025")).toMatchInlineSnapshot(`
       {
         "attribution": {
-          "crack": -2753147,
-          "events": -1197071,
-          "execution": -3680234,
-          "finance": -740119,
-          "flat_price": 14252269,
-          "freight": -24196477,
-          "optionality": 534771,
-          "quality": -1746037,
-          "regional": 18662956,
-          "time_spread": -1083220,
+          "crack": 3565071,
+          "events": -1209786,
+          "execution": -4509754,
+          "finance": -470573,
+          "flat_price": 2815713,
+          "freight": -18674468,
+          "optionality": -2045702,
+          "quality": 0,
+          "regional": 15215854,
+          "time_spread": -889522,
         },
         "deals": 24,
-        "equity": 48053691,
-        "lastBrent": 57.36,
+        "equity": 43796833,
+        "lastBrent": 64.62,
         "voyages": 12,
       }
     `);

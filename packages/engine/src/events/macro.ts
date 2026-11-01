@@ -187,7 +187,7 @@ export function fireEvent(ctx: MacroContext, kind: MacroEventKind, variant?: str
 /** Stochastic macro events, drawn once per business day from the events stream. */
 export function drawMacroEvents(ctx: MacroContext): void {
   const { m, rng, cfg } = ctx;
-  const rates = cfg.scenario.eventRates;
+  const rates = cfg.scenario.eventRatesByRegime?.[m.regime] ?? cfg.scenario.eventRates;
   const daily = (perYear: number) => perYear / 252;
   const { m: month } = ymd(m.day);
   // Hurricanes: Gulf of Mexico hurricane frequency by month from HURDAT2 (~21 business days a month)

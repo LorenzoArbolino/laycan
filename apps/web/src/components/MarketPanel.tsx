@@ -32,8 +32,8 @@ export function MarketPanel({ game }: { game: Game }) {
               <tbody>
                 {HUBS.map((h) => (
                   <tr key={h}>
-                    <td title={HUB_INFO[h].role}>
-                      <b>{h}</b> <small>{HUB_INFO[h].name}</small>
+                    <td title={`${HUB_INFO[h].name}: ${HUB_INFO[h].role}`}>
+                      <b>{h}</b>
                     </td>
                     {PRODUCTS.map((p) => (
                       <td key={p} className="num">

@@ -68,7 +68,8 @@ export interface Pricing {
   month?: { y: number; m: number };
 }
 
-export type Incoterm = "FOB" | "CIF" | "DES";
+/** ITT = in-tank transfer: title passes inside a storage terminal at the hub. */
+export type Incoterm = "FOB" | "CIF" | "DES" | "ITT";
 
 export interface Payment {
   kind: "LC" | "open";
@@ -168,6 +169,15 @@ export interface FuturesPosition {
   margin: number;
 }
 
+export interface Lease {
+  id: string;
+  hub: HubId;
+  capacityBbl: number;
+  feePerBblMonth: number;
+  startDay: number;
+  endDay: number;
+}
+
 export interface Payables {
   freight: number;
   demurrage: number;
@@ -179,11 +189,12 @@ export interface Book {
   cargoes: Cargo[];
   voyages: Voyage[];
   futures: FuturesPosition[];
+  leases: Lease[];
   payables: Payables;
   lcUsed: number;
   nextId: number;
 }
 
 export function emptyBook(cash: number): Book {
-  return { cash, deals: [], cargoes: [], voyages: [], futures: [], payables: { freight: 0, demurrage: 0 }, lcUsed: 0, nextId: 1 };
+  return { cash, deals: [], cargoes: [], voyages: [], futures: [], leases: [], payables: { freight: 0, demurrage: 0 }, lcUsed: 0, nextId: 1 };
 }

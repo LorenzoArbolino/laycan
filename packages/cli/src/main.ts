@@ -18,6 +18,7 @@ import {
   PRODUCTS,
   ROUTES,
   SCENARIOS,
+  EPISODES,
   assumptionsMarkdown,
   hubPrice,
   isoDate,
@@ -41,7 +42,7 @@ const pad = (s: string | number, n: number) => String(s).padStart(n);
 
 function printMarket(g: Game) {
   const m = g.market;
-  console.log(`\n${isoDate(m.day)}  regime: ${m.regime.toUpperCase()}   Brent ${m.brent.toFixed(2)} $/bbl`);
+  console.log(`\n${g.displayDate()}  regime: ${m.regime.toUpperCase()}   Brent ${m.brent.toFixed(2)} $/bbl`);
   console.log(`Chokepoints: ${g.chokeSummary()}`);
   console.log(`\nHub prices $/bbl (diff vs US Gulf)`.padEnd(30) + PRODUCTS.map((p) => pad(p, 18)).join(""));
   for (const h of HUBS) {
@@ -106,6 +107,9 @@ Commands
   accept <offerId> [route] [via] accept an offer; for FOB purchases name a route to charter
   assign <saleId> <voyageId>     deliver a sale with a voyage
   charter <route> <product> <days-ahead>   charter to lift product from your tank
+  lease <hub> [kbbl] [months]    lease tank capacity (take-or-pay)
+  spot <cargoId>                 sell a tank parcel to a merchant now (index − haircut)
+  carry                          cash-and-carry economics by hub
   fut <RB|HO|GO|BRN> <month#> <lots>       trade futures (month# 0 = front; lots < 0 to sell)
   curve                          futures curves
   quote <buy|sell> <product> <hub> <FOB|DES|CIF>   ask the market for a quote
@@ -116,7 +120,7 @@ Commands
 `;
 
 async function play() {
-  const scenario = opt("scenario", "now_2026_11");
+  const scenario = opt("scenario", "generated");
   const seed = opt("seed", String(Date.now() % 100000));
   const load = opt("load", "");
   let g: Game;
@@ -124,14 +128,14 @@ async function play() {
     const fs = await import("node:fs");
     g = Game.fromJSON(fs.readFileSync(load, "utf8"));
   } else g = Game.create({ scenario, seed });
-  const sc = SCENARIOS[g.state.scenarioId]!;
+  const sc = g.scenario;
   console.log(`\nLAYCAN — ${sc.name}\nSeed ${g.state.seed}. ${sc.description}\n`);
   for (const n of g.state.news) console.log(`  • ${n.title}`);
   console.log(HELP);
   printMarket(g);
   printOffers(g);
   const rl = createInterface({ input: stdin, output: stdout, terminal: stdin.isTTY ?? false });
-  const promptText = () => `\n[${isoDate(g.day)} week ${Math.floor((g.day - g.state.startDay) / 7) + 1}] > `;
+  const promptText = () => `\n[${g.displayDate()} week ${Math.floor((g.day - g.state.startDay) / 7) + 1}] > `;
   const finish = () => {
     console.log("\n=== Scenario complete ===");
     printBook(g);
@@ -183,6 +187,19 @@ async function handle(g: Game, c: string, a: string[]): Promise<void> {
     case "accept":
       console.log(g.act({ type: "accept", offerId: a[0]!, charter: a[1] ? { routeId: a[1], via: a[2] as "suez" | "cape" | undefined } : undefined }).message);
       return;
+    case "lease":
+      console.log(g.act({ type: "lease", hub: a[0] as HubId, capacityBbl: Number(a[1] ?? 300) * 1000, months: Number(a[2] ?? 3) }).message);
+      return;
+    case "spot":
+      console.log(g.act({ type: "sellSpot", cargoId: a[0]! }).message);
+      return;
+    case "carry":
+      for (const h of ["ARA", "USGC", "SIN", "FUJ"] as const)
+        for (const p of ["diesel", "gasoline"] as const) {
+          const c = g.carry(h, p);
+          console.log(`  ${h.padEnd(5)} ${p.padEnd(9)} contango ${c.contango.toFixed(2).padStart(6)}  storage −${c.storage.toFixed(2)}  finance −${c.finance.toFixed(2)}  net ${c.net.toFixed(2).padStart(6)} $/bbl/month`);
+        }
+      return;
     case "assign":
       console.log(g.act({ type: "assign", saleId: a[0]!, voyageId: a[1]! }).message);
       return;
@@ -231,7 +248,7 @@ async function handle(g: Game, c: string, a: string[]): Promise<void> {
 }
 
 function simulate() {
-  const g = Game.create({ scenario: opt("scenario", "now_2026_11"), seed: opt("seed", "1"), weeks: Number(opt("weeks", "12")) });
+  const g = Game.create({ scenario: opt("scenario", "generated"), seed: opt("seed", "1"), weeks: Number(opt("weeks", "12")) });
   while (!g.over) g.advance();
   const h = g.state.history;
   console.log(`${h.length} business days. Brent ${h[0]!.brent.toFixed(2)} → ${h.at(-1)!.brent.toFixed(2)}; diesel crack ${h[0]!.cracks.diesel.toFixed(1)} → ${h.at(-1)!.cracks.diesel.toFixed(1)}`);
@@ -242,6 +259,10 @@ function simulate() {
   void productBblPerTonne;
 }
 
-if (cmd === "assumptions") stdout.write(assumptionsMarkdown());
+if (cmd === "list") {
+  console.log("generated              Generated market (default): realistic world, no real date or prices");
+  for (const e of EPISODES) console.log(`${e.id.padEnd(22)} Historical replay: ${e.name}`);
+  for (const s of Object.values(SCENARIOS)) console.log(`${s.id.padEnd(22)} Real start: ${s.name}`);
+} else if (cmd === "assumptions") stdout.write(assumptionsMarkdown());
 else if (cmd === "simulate") simulate();
 else await play();

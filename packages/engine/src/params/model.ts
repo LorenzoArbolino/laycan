@@ -119,6 +119,25 @@ export const MODEL = {
     } as Record<Regime, Record<"brent" | ProductId, Param>>,
   },
   hurricane: cal.hurricane.gulf_hurricanes_per_year_by_month as Param<number[]>,
+  stocks: {
+    kappa: est(0.012, "1/day", "model design", "inventory deviations mean-revert with a half-life of ~2 months"),
+    sigma: est(0.35, "%/day", "EIA weekly stocks: week-on-week changes of the 5-year deviation are ~1-2 points"),
+    structureSlope: est(0.12, "($/bbl/month) per % of stocks", "theory of storage; order of magnitude from 2020 (surplus, contango) and 2022/2026 (deficit, backwardation)", "front monthly spread falls by $0.12/bbl for each 1% of stocks above the 5-year average"),
+  },
+  storage: {
+    baseFee: {
+      USGC: est(0.4, "$/bbl/month", "independent terminal tariffs, order of magnitude"),
+      NYH: est(0.55, "$/bbl/month", "independent terminal tariffs, order of magnitude"),
+      ARA: est(0.45, "$/bbl/month", "ARA independent storage, order of magnitude"),
+      WAF: est(0.8, "$/bbl/month", "limited independent tankage"),
+      MEG: est(0.7, "$/bbl/month", "limited independent tankage"),
+      FUJ: est(0.6, "$/bbl/month", "Fujairah storage, order of magnitude"),
+      SIN: est(0.5, "$/bbl/month", "Singapore storage, order of magnitude"),
+    } as Record<HubId, Param>,
+    contangoPremium: est(0.25, "share of contango", "storage rents rise when contango makes storage valuable", "lease fee × (1 + 0.25 × contango in $/bbl/month)"),
+    spotMultiplier: est(1.6, "x", "short-term spot tankage costs more than a term lease"),
+    spotSaleHaircut: est(0.6, "$/bbl", "discount a merchant asks to take a prompt parcel off your hands"),
+  },
 };
 
 /** Route-specific TCE multipliers against the class index: tonnage positioning (TC2 is a backhaul, TC14 is in demand). */
@@ -150,13 +169,47 @@ export const ROUTE_MULT_NOW: RouteMult = {
   "USGC-WAF": est(0.7, "x", "assumed"),
 };
 
+export type ScenarioKind = "generated" | "historical" | "snapshot";
+
+/** A dated, scripted event for historical replays (or scripted scenarios). */
+export interface ScriptedEvent {
+  date: string;
+  title: string;
+  body?: string;
+  severity?: "info" | "warn" | "critical";
+  regime?: Regime;
+  choke?: ["hormuz" | "babelmandeb" | "suez", "open" | "restricted" | "closed"];
+  finance?: { lcFeeMult: number; overdraftMult: number; days: number };
+  port?: [HubId, number];
+  /** decaying shifts: [target, amount, half-life days] */
+  structure?: ["brent" | ProductId, number, number][];
+  tce?: [VesselClass, number, number][];
+  diff?: [HubId, ProductId, number, number][];
+  stocks?: [ProductId, number, number][];
+}
+
 export interface Scenario {
   id: string;
+  kind: ScenarioKind;
   name: string;
   description: string;
   startDate: string;
   weeks: number;
   regime: Regime;
+  /** US stocks vs 5-year seasonal average, % (drives curve structure) */
+  stocks: Record<ProductId, Param>;
+  /** days simulated before the start, so charts have history and the state is consistent */
+  burnInDays: number;
+  /** generated worlds show years as "Year 1, 2…" relative to this calendar year */
+  displayYearBase?: number;
+  /** stochastic macro events on/off (historical replays use only the scripted ones) */
+  randomEvents: boolean;
+  chokeTransitionByRegime?: Partial<Record<Regime, Scenario["chokeTransition"]>>;
+  eventRatesByRegime?: Partial<Record<Regime, Record<string, Param>>>;
+  replay?: string;
+  script?: ScriptedEvent[];
+  /** provenance for the scripted events of a replay */
+  scriptSource?: Param<string>;
   brent: Param;
   cracks: Record<ProductId, Param>;
   /** crack long-run means for the current regime (overrides the calibrated regime means) */
@@ -202,6 +255,14 @@ const finance = (equity: number, rateNote: string) => ({
 export const SCENARIOS: Record<string, Scenario> = {
   now_2026_11: {
     id: "now_2026_11",
+    kind: "snapshot",
+    burnInDays: 0,
+    randomEvents: true,
+    stocks: {
+      gasoline: snapN.us_gasoline_stocks_vs_5y_pct!,
+      diesel: snapN.us_distillate_stocks_vs_5y_pct!,
+      jet: est(4.7, "%", "EIA WPSR WKJSTUS1, week to 23 Oct 2026 (computed in calibration)"),
+    },
     name: "Now — November 2026 (war regime)",
     description:
       "Initialised from public data to 27 Oct 2026: Hormuz restricted after the July re-closure, the Red Sea hazardous, Brent spot above $120, diesel cracks near records while gasoline collapses, East-of-Suez freight at extreme levels.",
@@ -245,6 +306,10 @@ export const SCENARIOS: Record<string, Scenario> = {
   },
   normal_2025: {
     id: "normal_2025",
+    kind: "snapshot",
+    burnInDays: 0,
+    randomEvents: true,
+    stocks: { gasoline: est(0, "%", "assumed near average"), diesel: est(0, "%", "assumed near average"), jet: est(0, "%", "assumed near average") },
     name: "Normal — November 2025 (baseline)",
     description: "A calmer baseline from public data around early November 2025: Brent in the $60s, moderate cracks, ordinary freight. Play it next to 'Now' to see how the same strategy behaves in another regime.",
     startDate: "2025-11-03",

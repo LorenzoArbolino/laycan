@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Game, SCENARIOS, assumptionRows, isoDate, type Action, type NewsItem } from "@laycan/engine";
+import { EPISODES, Game, SCENARIOS, assumptionRows, type Action, type HubId, type NewsItem } from "@laycan/engine";
 import { MarketPanel } from "./components/MarketPanel";
 import { OffersPanel } from "./components/OffersPanel";
 import { BookPanel } from "./components/BookPanel";
 import { PnlPanel } from "./components/PnlPanel";
-import { cls, money, shortDate } from "./format";
+import { WorldMap } from "./components/WorldMap";
+import { cls, money } from "./format";
 
 const SAVE_KEY = "laycan-save-v1";
 
@@ -34,26 +35,47 @@ function seedFromUrl(): string | null {
 }
 
 function StartScreen({ onStart, resume }: { onStart: (scenario: string, seed: string) => void; resume: Game | null }) {
-  const [scenario, setScenario] = useState("now_2026_11");
+  const [scenario, setScenario] = useState("generated");
   const [seed, setSeed] = useState(seedFromUrl() ?? String(Math.floor(Math.random() * 1e6)));
+  const card = (id: string, title: string, body: string, extra = "") => (
+    <button key={id} className={`card ${extra} ${scenario === id ? "selected" : ""}`} onClick={() => setScenario(id)} data-testid={`scenario-${id}`}>
+      <h3>{title}</h3>
+      <p>{body}</p>
+    </button>
+  );
   return (
     <div className="start">
       <h1>Laycan</h1>
       <p className="lede">
-        Run a physical refined-products book. Buy and sell cargoes of gasoline, diesel and jet, charter tankers, hedge with futures, and find out where the money really comes from: freight, timing, pricing windows, optionality and
-        things going wrong.
+        Run a physical refined-products book. Buy and sell cargoes of gasoline, diesel and jet, charter tankers, store product, hedge with futures, and find out where the money really comes from: freight, timing, pricing
+        windows, optionality and things going wrong.
       </p>
-      <div className="cards">
-        {Object.values(SCENARIOS).map((s) => (
-          <button key={s.id} className={`card ${scenario === s.id ? "selected" : ""}`} onClick={() => setScenario(s.id)} data-testid={`scenario-${s.id}`}>
-            <h3>{s.name}</h3>
-            <p>{s.description}</p>
-          </button>
-        ))}
+      <div className="modes">
+        <div>
+          <div className="mode-title">
+            <h2>Generated market</h2>
+            <small>a realistic world with no real date or prices: every seed is a new market</small>
+          </div>
+          <div className="cards">{card("generated", "Generated market", "Regime, prices, freight, inventories and chokepoints drawn from the model calibrated on 20 years of data, then run forward. Share the seed to play the same world.", "hero")}</div>
+        </div>
+        <div>
+          <div className="mode-title">
+            <h2>Historical replay</h2>
+            <small>real US benchmark prices and stocks day by day; the rest of the world is modelled around them</small>
+          </div>
+          <div className="cards">{EPISODES.map((e) => card(e.id, e.name, e.teaser))}</div>
+        </div>
+        <div>
+          <div className="mode-title">
+            <h2>Start from a real date</h2>
+            <small>initialised from real market data, then simulated forward</small>
+          </div>
+          <div className="cards">{Object.values(SCENARIOS).map((s) => card(s.id, s.name, s.description))}</div>
+        </div>
       </div>
       <div className="form-row" style={{ marginTop: 16 }}>
         <label className="field">
-          Seed (share it: the same seed gives the same market)
+          Seed (same seed, same market)
           <input value={seed} onChange={(e) => setSeed(e.target.value)} aria-label="Seed" />
         </label>
         <button className="btn primary" onClick={() => onStart(scenario, seed)} data-testid="start">
@@ -61,29 +83,29 @@ function StartScreen({ onStart, resume }: { onStart: (scenario: string, seed: st
         </button>
         {resume && !resume.over && (
           <button className="btn" onClick={() => onStart("", "")}>
-            Resume saved game ({resume.scenario.name.split(" —")[0]}, {shortDate(isoDate(resume.day))})
+            Resume saved game ({resume.scenario.name.split(" —")[0]}, {resume.displayDate()})
           </button>
         )}
       </div>
       <div className="howto">
         <div>
-          <b>1. Read the market.</b> Hub prices are Brent + the US Gulf crack + a regional differential. Differentials sit near freight parity: importers above, exporters below.
+          <b>1. Read the map.</b> Hub prices are Brent + the US Gulf crack + a regional differential. Green routes are where the spread beats freight today; diamonds are chokepoints.
         </div>
         <div>
-          <b>2. Find an arb.</b> Buy FOB where product is cheap, charter a ship, sell delivered where it is dear. It only pays if the spread beats freight, and it prices later, around the bill-of-lading date.
+          <b>2. Trade the arb.</b> Buy FOB where product is cheap, charter a ship, sell delivered where it is dear. It prices later, around the bill-of-lading date, so the arb you see is not the arb you get.
         </div>
         <div>
-          <b>3. Hedge what is priced.</b> A floating purchase has no price risk until its window fixes. Hedge too early and you are short. Futures cost margin, and in backwardation shorts bleed.
+          <b>3. Store when the curve pays.</b> Lease tanks, buy prompt in-tank parcels and sell the curve forward when contango beats rent plus interest.
         </div>
         <div>
-          <b>4. Survive.</b> Ships are delayed, cargoes arrive off-spec, chokepoints close, buyers default. Stay inside your VaR limit and credit line. Every dollar of P&amp;L is explained at the end.
+          <b>4. Hedge what is priced, and survive.</b> Floating purchases carry no price risk until they fix. Ships are delayed, cargoes go off-spec, chokepoints close, buyers default.
         </div>
       </div>
     </div>
   );
 }
 
-function News({ items }: { items: NewsItem[] }) {
+function News({ items, game }: { items: NewsItem[]; game: Game }) {
   return (
     <section className="panel col-3" aria-label="News">
       <div className="panel-head">
@@ -92,7 +114,7 @@ function News({ items }: { items: NewsItem[] }) {
       <div className="news">
         {[...items].reverse().slice(0, 60).map((n, i) => (
           <div key={i} className={`news-item ${n.severity}`}>
-            <span className="muted">{shortDate(isoDate(n.day))}</span> <span className="t">{n.title}</span>
+            <span className="muted">{game.displayDate(n.day).replace(/,? (Year \d+|\d{4})$/, "")}</span> <span className="t">{n.title}</span>
             {n.body && <div>{n.body}</div>}
           </div>
         ))}
@@ -161,6 +183,7 @@ export function App() {
   const [saved] = useState<Game | null>(() => load());
   const [, setVersion] = useState(0);
   const [tab, setTab] = useState<"offers" | "book">("offers");
+  const [hub, setHub] = useState<HubId | null>(null);
   const [toast, setToast] = useState<{ text: string; err: boolean } | null>(null);
   const [showAssumptions, setShowAssumptions] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -213,7 +236,7 @@ export function App() {
         <div className="kpi">
           <span className="label">Date</span>
           <span className="value" data-testid="date">
-            {isoDate(g.day)}
+            {g.displayDate()}
           </span>
         </div>
         <div className="kpi">
@@ -232,6 +255,12 @@ export function App() {
           <span className="label">Cash / credit</span>
           <span className="value">
             {money(b.cash, 1)} / {money(g.creditLimit(), 0)}
+          </span>
+        </div>
+        <div className="kpi">
+          <span className="label">Mode</span>
+          <span className="value" style={{ fontSize: 12, fontFamily: "var(--sans)" }}>
+            {g.scenario.kind === "generated" ? "Generated" : g.scenario.kind === "historical" ? "Replay" : "Real start"}
           </span>
         </div>
         <div className="kpi">
@@ -267,26 +296,27 @@ export function App() {
         </section>
       )}
 
-      <main className="grid">
+      <main className="grid2">
         <div className="col">
           <MarketPanel game={g} />
         </div>
-        <div className="col">
+        <div className="col center">
+          <WorldMap game={g} selectedHub={hub} onHub={(h) => { setHub(h); setTab("offers"); }} />
           <section className="panel">
             <div className="tabs" role="tablist">
               <button role="tab" aria-selected={tab === "offers"} className={`tab ${tab === "offers" ? "active" : ""}`} onClick={() => setTab("offers")}>
                 Offers &amp; bids <span className="count">{g.state.offers.length}</span>
               </button>
               <button role="tab" aria-selected={tab === "book"} className={`tab ${tab === "book" ? "active" : ""}`} onClick={() => setTab("book")} data-testid="tab-book">
-                Book &amp; hedges <span className="count">{g.openPositions().deals.length + g.openPositions().voyages.length + g.book.futures.length}</span>
+                Book, storage &amp; hedges <span className="count">{g.openPositions().deals.length + g.openPositions().voyages.length + g.book.futures.length}</span>
               </button>
             </div>
-            {tab === "offers" ? <OffersPanel game={g} act={act} /> : <BookPanel game={g} act={act} />}
+            {tab === "offers" ? <OffersPanel game={g} act={act} hub={hub} clearHub={() => setHub(null)} /> : <BookPanel game={g} act={act} />}
           </section>
         </div>
-        <div className="col col-3">
+        <div className="col">
           <PnlPanel game={g} />
-          <News items={g.state.news} />
+          <News items={g.state.news} game={g} />
         </div>
       </main>
       {toast && <div className={`toast ${toast.err ? "err" : ""}`}>{toast.text}</div>}

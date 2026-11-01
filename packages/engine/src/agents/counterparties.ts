@@ -3,7 +3,7 @@
  * price (the index) plus a premium or discount that depends on the counterparty's
  * personality, credit quality and a little noise. Fictional names only.
  */
-import { addMonths, isBusinessDay, ymd } from "../core/calendar";
+import { isBusinessDay, ymd } from "../core/calendar";
 import type { Rng } from "../core/rng";
 import { tonnesToBbl, type ProductId } from "../core/units";
 import { hubPrice, type MarketState } from "../market/market";
@@ -85,6 +85,15 @@ export const TEMPLATES: readonly Template[] = [
   T("sell", "diesel", "ARA", "CIF", "LR1", 1, "Large European diesel parcel, CIF"),
   T("sell", "gasoline", "ARA", "FOB", "MR", 0.7, "Buyer lifting from ARA tanks"),
   T("sell", "diesel", "USGC", "FOB", "MR", 0.7, "Buyer lifting from US Gulf tanks"),
+  // Prompt in-tank parcels: the raw material of storage plays
+  T("buy", "diesel", "ARA", "ITT", "MR", 1.2, "Prompt parcel in an ARA terminal"),
+  T("buy", "gasoline", "ARA", "ITT", "MR", 0.8, "Prompt parcel in an ARA terminal"),
+  T("buy", "diesel", "USGC", "ITT", "MR", 0.8, "Prompt parcel in a Houston terminal"),
+  T("buy", "jet", "SIN", "ITT", "MR", 0.5, "Prompt parcel in a Singapore terminal"),
+  T("buy", "diesel", "FUJ", "ITT", "MR", 0.5, "Prompt parcel in a Fujairah terminal"),
+  T("sell", "diesel", "ARA", "ITT", "MR", 1, "Wholesaler buying in-tank at ARA"),
+  T("sell", "gasoline", "NYH", "ITT", "MR", 0.6, "Blender buying in-tank at NY Harbor"),
+  T("sell", "jet", "ARA", "ITT", "MR", 0.6, "Airline supplier buying in-tank at ARA"),
 ];
 
 function pickTemplate(rng: Rng): Template {
@@ -107,10 +116,11 @@ export function makeOffer(rng: Rng, m: MarketState, id: string, expiresDay: numb
   const t = opts?.template ?? pickTemplate(rng);
   const c = opts?.cpty ?? rng.pick(COUNTERPARTIES);
   const tonnes = VESSELS[t.cls].cargoTonnes.value * (c.kind === "noc" ? 1 : 0.95 + 0.1 * rng.uniform());
-  const qtyBbl = Math.round(tonnesToBbl(tonnes, t.product) / 1000) * 1000;
+  const qtyBbl = t.incoterm === "ITT" ? 50_000 * (2 + rng.int(5)) : Math.round(tonnesToBbl(tonnes, t.product) / 1000) * 1000;
   // Laycans: purchases load soon; delivered sales leave time to ship a cargo there.
-  const start = t.incoterm === "FOB" ? nextBusinessDay(m.day + 7 + rng.int(14)) : nextBusinessDay(m.day + 24 + rng.int(18));
-  const len = t.incoterm === "FOB" ? 4 : 6;
+  const start =
+    t.incoterm === "ITT" ? nextBusinessDay(m.day + 2 + rng.int(4)) : t.incoterm === "FOB" ? nextBusinessDay(m.day + 7 + rng.int(14)) : nextBusinessDay(m.day + 24 + rng.int(18));
+  const len = t.incoterm === "ITT" ? 2 : t.incoterm === "FOB" ? 4 : 6;
   const kinds: PricingKind[] = ["bl5", "bl5", "bl5", "post5", "month", "fixed"];
   const kind = rng.pick(kinds);
   const spreadMult = opts?.spreadMult ?? 1;
@@ -123,8 +133,6 @@ export function makeOffer(rng: Rng, m: MarketState, id: string, expiresDay: numb
   if (kind === "month") {
     const { y, m: mo } = ymd(start);
     pricing.month = { y, m: mo };
-    const next = addMonths(y, mo, 0);
-    pricing.month = { y: next.y, m: next.m };
   }
   return {
     id,
@@ -135,7 +143,7 @@ export function makeOffer(rng: Rng, m: MarketState, id: string, expiresDay: numb
     hub: t.hub,
     incoterm: t.incoterm,
     qtyBbl,
-    tolPct: 5,
+    tolPct: t.incoterm === "ITT" ? 0 : 5,
     tolHolder: t.incoterm === "FOB" && t.side === "buy" ? "player" : "cpty",
     laycan: [start, start + len],
     pricing,

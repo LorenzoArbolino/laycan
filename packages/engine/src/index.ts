@@ -14,3 +14,6 @@ export * from "./world/world";
 export * from "./core/units";
 export * from "./core/calendar";
 export { Rng } from "./core/rng";
+export * from "./world/geo";
+export { makeGeneratedScenario } from "./params/generated";
+export { EPISODES, makeHistoricalScenario, replayRows, REPLAY_SOURCE } from "./params/episodes";

@@ -4,14 +4,23 @@ A physical refined-products trading simulator. You run a book of gasoline, diese
 
 Every dollar of P&L is attributed to flat price, crack, regional arbitrage, time spread and carry, quality, freight, optionality, deal edge, events and finance. Attribution is the main output.
 
-## Scenarios
+## Game modes
 
-| Scenario | Start | What it feels like |
-|---|---|---|
-| `now_2026_11` | 2 Nov 2026 | War regime, initialised from public data to 27 Oct 2026. Hormuz restricted, Red Sea hazardous, Brent spot above $120, diesel cracks near records while gasoline collapses, East-of-Suez freight at extreme levels. |
-| `normal_2025` | 3 Nov 2025 | Calmer baseline: Brent in the $60s, moderate cracks, ordinary freight. |
+| Mode | What it is |
+|---|---|
+| **Generated market** (default) | A realistic world with no real date or prices. Regime, Brent, cracks, freight, inventories and chokepoints are drawn from the calibrated model and run forward through a three-month burn-in. Every seed is a different market. |
+| **Historical replay** | Real US benchmark prices (Brent, US Gulf cracks, NY Harbor spreads) and US stocks, day by day from EIA data. Other hubs, freight and curves are modelled around them, and the period's main events are scripted. Episodes: Financial crisis 2008, Abqaiq 2019, COVID 2020, Texas freeze 2021, Ukraine 2022, diesel squeeze 2022, Red Sea 2023-24, Iran war 2026. |
+| **Start from a real date** | Initialised from real data (Nov 2025 baseline, Nov 2026 war regime), then simulated forward. |
 
-Games are seeded and deterministic: the same seed and the same actions give identical results on every platform. The market path does not depend on what the player does.
+Games are seeded and deterministic: the same seed and actions give identical results on every platform, and the market path does not depend on what the player does.
+
+## What you can do
+
+- **Trade cargoes:** buy FOB, CIF/DES delivered or in-tank (ITT); sell delivered, FOB or in-tank; ask the market for quotes.
+- **Ship:** charter MR/LR1/LR2 tankers on ten routes (Suez or Cape variants) and see each arb at today's prices.
+- **Store:** lease tank capacity (take-or-pay, dearer in contango), hold inventory, sell spot, and compare contango against rent plus financing.
+- **Hedge:** RBOB, NY Harbor ULSD, ICE Gasoil and Brent futures with daily variation margin.
+- **Watch the world map:** hubs with live prices, sea routes coloured by whether the arb is open, chokepoint states, your ships along their routes, and tank inventories.
 
 ## Quick start
 
@@ -21,7 +30,9 @@ npm test                 # unit, property, stylized-fact, sanity and golden test
 npm run dev              # web app (http://localhost:5173)
 npm run build            # static build in apps/web/dist, deployable to any static host
 npm run e2e              # browser end-to-end tests (Playwright, Chromium)
-npm run play -- --scenario now_2026_11 --seed 42      # command-line game
+npm run play -- --seed 42                       # command-line game (generated market)
+npm run play -- --scenario covid_2020 --seed 42  # a historical replay
+npx tsx packages/cli/src/main.ts list            # all modes and episodes
 npx tsx packages/cli/src/main.ts assumptions > assumptions.md   # assumptions sheet
 ```
 
@@ -54,6 +65,7 @@ futures(k)      = hub price − curve spread(p) · g(months to expiry)
 - **Brent:** GARCH(1,1) with Student-t shocks, a regime volatility multiplier, and jumps in stressed and war regimes.
 - **Cracks:** seasonal Ornstein–Uhlenbeck processes with regime-dependent means, correlated multivariate-t shocks, and common jumps.
 - **Regional diffs:** each hub is anchored to another through a shipping route. Importing hubs sit near anchor + freight and exporting hubs near anchor − freight. Once the arbitrage opens, mean reversion strengthens. If the route is blocked, the hub decouples: exporters face a glut, importers a shortage.
+- **Inventories:** stocks vs the 5-year average drive curve structure, following the theory of storage. Surpluses push the curve towards contango; deficits push it into backwardation.
 - **Freight:** built bottom-up from time-charter earnings, distance, speed, bunkers, port and canal costs, plus war-risk premiums. Reproduces published route rates for TC2, TC8, TC14 and TC19 within 10%.
 - **Chokepoints:** Hormuz, Bab-el-Mandeb and Suez, each open, restricted or closed. Restricted means premiums, delays and incident risk. Closed means rerouting or stranded cargoes.
 
@@ -61,8 +73,10 @@ futures(k)      = hub price − curve spread(p) · g(months to expiry)
 
 Calibration uses public-domain U.S. EIA data (daily spot prices via FRED, weekly stocks via the EIA API), NOAA HURDAT2 and searoute (Apache-2.0) sea distances. Raw downloads stay local in `data/raw/` (gitignored). Only fitted parameters are committed, each carrying its source, method and date. Exchange and price-reporting-agency data are not redistributed. Every number is labelled `data`, `derived` or `estimate`, and the assumptions sheet lists them all.
 
-To refresh calibration (requires `uv`, plus a free `EIA_API_KEY` for the weekly series):
+To refresh calibration, replay episodes and map geometry (requires `uv`, plus a free `EIA_API_KEY` for the weekly series):
 
 ```bash
-cd calibration && uv run python fetch.py && uv run python fit.py
+cd calibration && uv run python fetch.py && uv run python fit.py && uv run python replay.py && uv run python geo.py
 ```
+
+Map land shapes come from Natural Earth (public domain) via the `world-atlas` package.
