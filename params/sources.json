@@ -1,0 +1,106 @@
+{
+  "eia:WDISTUS1": {
+    "description": "US distillate ending stocks, kbbl",
+    "publisher": "U.S. EIA Open Data API v2",
+    "retrieved": "2026-11-01",
+    "rows": 2300,
+    "sha256": "ab0f6a4f5de0439eaa5bb02a2c5627d3d8199006839d7b7bd1eb7d0050be3ff6",
+    "url": "https://api.eia.gov/v2/petroleum/stoc/wstk/data/?facets[series][]=WDISTUS1"
+  },
+  "eia:WGTSTUS1": {
+    "description": "US total motor gasoline ending stocks, kbbl",
+    "publisher": "U.S. EIA Open Data API v2",
+    "retrieved": "2026-11-01",
+    "rows": 1921,
+    "sha256": "2039a00991ac6d12544d5b17b682710fb89df2b136444e3b7332046e42bef9eb",
+    "url": "https://api.eia.gov/v2/petroleum/stoc/wstk/data/?facets[series][]=WGTSTUS1"
+  },
+  "eia:WKJSTUS1": {
+    "description": "US kerosene-type jet ending stocks, kbbl",
+    "publisher": "U.S. EIA Open Data API v2",
+    "retrieved": "2026-11-01",
+    "rows": 2300,
+    "sha256": "e51103f4f94fe2c0448538dfe3a11cb5faffdd7e2215f77a8f5763beda5b703f",
+    "url": "https://api.eia.gov/v2/petroleum/stoc/wstk/data/?facets[series][]=WKJSTUS1"
+  },
+  "eia:WPULEUS3": {
+    "description": "US refinery utilisation, %",
+    "publisher": "U.S. EIA Open Data API v2",
+    "retrieved": "2026-11-01",
+    "rows": 1878,
+    "sha256": "23b03595ed039ab376ee5e41c96ca083811df743632775dbb63eea3cf916988c",
+    "url": "https://api.eia.gov/v2/petroleum/pnp/wiup/data/?facets[series][]=WPULEUS3"
+  },
+  "fred:DCOILBRENTEU": {
+    "description": "Brent spot FOB, $/bbl",
+    "publisher": "U.S. EIA via FRED (St. Louis Fed)",
+    "retrieved": "2026-11-01",
+    "rows": 10290,
+    "sha256": "f3ad22ec3aa8800fc5edfa638d364ae388a5612ed895d233f0b2af67c807a393",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILBRENTEU"
+  },
+  "fred:DCOILWTICO": {
+    "description": "WTI Cushing spot, $/bbl",
+    "publisher": "U.S. EIA via FRED (St. Louis Fed)",
+    "retrieved": "2026-11-01",
+    "rows": 10649,
+    "sha256": "d85c38f6f6e9078151ec4232b3c3653e8953bbd3b0506f72375e9912503d8295",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILWTICO"
+  },
+  "fred:DDFUELNYH": {
+    "description": "NY Harbor ULSD spot, $/gal",
+    "publisher": "U.S. EIA via FRED (St. Louis Fed)",
+    "retrieved": "2026-11-01",
+    "rows": 5317,
+    "sha256": "47b67ae7f71b0cc1775639493dc58d4ec529a28b91bca93a7e0534ff6f16089a",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DDFUELNYH"
+  },
+  "fred:DDFUELUSGULF": {
+    "description": "US Gulf Coast ULSD spot, $/gal",
+    "publisher": "U.S. EIA via FRED (St. Louis Fed)",
+    "retrieved": "2026-11-01",
+    "rows": 5317,
+    "sha256": "2a9a84f865f7d7b386ea00318b864ca6f0c7125fc029272da67595fd6ee5922e",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DDFUELUSGULF"
+  },
+  "fred:DGASNYH": {
+    "description": "NY Harbor conventional gasoline spot, $/gal",
+    "publisher": "U.S. EIA via FRED (St. Louis Fed)",
+    "retrieved": "2026-11-01",
+    "rows": 10542,
+    "sha256": "df916f0b65b6d5b69c7bdeaa732a0e3ac65b782b9ae4e0a93290b7e560745ed3",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGASNYH"
+  },
+  "fred:DGASUSGULF": {
+    "description": "US Gulf Coast conventional gasoline spot, $/gal",
+    "publisher": "U.S. EIA via FRED (St. Louis Fed)",
+    "retrieved": "2026-11-01",
+    "rows": 10542,
+    "sha256": "d0b81ab0f8e9474830a2364f98f71d9000ce64ee602386a2e7592c448ad01c2d",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGASUSGULF"
+  },
+  "fred:DHOILNYH": {
+    "description": "NY Harbor No.2 heating oil spot, $/gal",
+    "publisher": "U.S. EIA via FRED (St. Louis Fed)",
+    "retrieved": "2026-11-01",
+    "rows": 10542,
+    "sha256": "363faafd664ad148acad0e5ecb67fff14d7a3d3a9d79cc28fb007c9609c16022",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DHOILNYH"
+  },
+  "fred:DJFUELUSGULF": {
+    "description": "US Gulf Coast kerosene-type jet fuel spot, $/gal",
+    "publisher": "U.S. EIA via FRED (St. Louis Fed)",
+    "retrieved": "2026-11-01",
+    "rows": 9542,
+    "sha256": "cc08ccb5fa0eb39f636eb974f5414d7c0bdb1f2bc213aaf84252d178702feccf",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DJFUELUSGULF"
+  },
+  "noaa:hurdat2": {
+    "description": "Atlantic hurricane best-track database (HURDAT2)",
+    "publisher": "NOAA National Hurricane Center",
+    "retrieved": "2026-11-01",
+    "rows": 57512,
+    "sha256": "75202780ce56c8458f16fbef5fb8a026b99b00878dbb95c458211b3e6ef125b4",
+    "url": "https://www.nhc.noaa.gov/data/hurdat/hurdat2-1851-2025-092326.txt"
+  }
+}

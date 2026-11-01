@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+*.log
+.env
+.env.*
+.DS_Store
+# Raw downloads and any licensed data stay local, never committed
+data/raw/
+data/licensed/
+calibration/.venv/
+calibration/__pycache__/
+apps/web/test-results/
+apps/web/playwright-report/

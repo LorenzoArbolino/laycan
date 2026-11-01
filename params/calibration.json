@@ -1,0 +1,948 @@
+{
+ "meta": {
+  "generated": "2026-11-01",
+  "sample_start": "2006-06-14",
+  "sample_end": "2026-10-27",
+  "rows": 4899
+ },
+ "brent": {
+  "garch_omega": {
+   "value": 1.7e-05,
+   "unit": "1/day^2",
+   "label": "derived",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "GARCH(1,1)-t MLE on last 2500 normal-regime daily log returns",
+   "date": "2026-11-01"
+  },
+  "garch_alpha": {
+   "value": 0.064136,
+   "unit": "-",
+   "label": "derived",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "GARCH(1,1)-t MLE",
+   "date": "2026-11-01"
+  },
+  "garch_beta": {
+   "value": 0.900545,
+   "unit": "-",
+   "label": "derived",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "GARCH(1,1)-t MLE",
+   "date": "2026-11-01"
+  },
+  "t_nu": {
+   "value": 6.211119,
+   "unit": "-",
+   "label": "derived",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "GARCH(1,1)-t MLE, Student-t degrees of freedom",
+   "date": "2026-11-01"
+  },
+  "vol_mult_stressed": {
+   "value": 3.76574,
+   "unit": "x",
+   "label": "derived",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "realised vol ratio stressed/normal windows",
+   "date": "2026-11-01"
+  },
+  "vol_mult_war": {
+   "value": 1.987715,
+   "unit": "x",
+   "label": "derived",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "realised vol ratio war/normal windows",
+   "date": "2026-11-01"
+  },
+  "jump_rate": {
+   "value": 0.771186,
+   "unit": "per year",
+   "label": "derived",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": ">5 robust-sigma daily moves, normal regime",
+   "date": "2026-11-01"
+  },
+  "jump_scale": {
+   "value": 0.09581,
+   "unit": "log-return",
+   "label": "derived",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "mean |jump| of >5 robust-sigma moves",
+   "date": "2026-11-01"
+  }
+ },
+ "cracks": {
+  "gasoline": {
+   "season_fourier": {
+    "value": [
+     -5.338846304560937,
+     2.0797554563773444,
+     -1.139504976675045,
+     0.7992536307506025
+    ],
+    "unit": "$/bbl",
+    "label": "derived",
+    "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+    "method": "2-harmonic Fourier fit of crack minus 365d centred mean, normal regime",
+    "date": "2026-11-01"
+   },
+   "normal": {
+    "mean": {
+     "value": 10.332169,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean USGC gasoline crack vs Brent, normal windows",
+     "date": "2026-11-01"
+    },
+    "kappa": {
+     "value": 0.059653,
+     "unit": "1/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "AR(1) on daily levels, -ln(b)",
+     "date": "2026-11-01"
+    },
+    "sigma": {
+     "value": 1.664042,
+     "unit": "$/bbl/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "std of non-jump AR(1) residuals",
+     "date": "2026-11-01"
+    },
+    "jump_rate": {
+     "value": 2.254237,
+     "unit": "per year",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": ">4.5 robust-sigma residuals",
+     "date": "2026-11-01"
+    },
+    "jump_scale": {
+     "value": 13.430949,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean |jump|",
+     "date": "2026-11-01"
+    }
+   },
+   "stressed": {
+    "mean": {
+     "value": 6.273553,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean USGC gasoline crack vs Brent, stressed windows",
+     "date": "2026-11-01"
+    },
+    "kappa": {
+     "value": 0.2,
+     "unit": "1/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "AR(1) on daily levels, -ln(b)",
+     "date": "2026-11-01"
+    },
+    "sigma": {
+     "value": 2.525615,
+     "unit": "$/bbl/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "std of non-jump AR(1) residuals",
+     "date": "2026-11-01"
+    },
+    "jump_rate": {
+     "value": 2.690391,
+     "unit": "per year",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": ">4.5 robust-sigma residuals",
+     "date": "2026-11-01"
+    },
+    "jump_scale": {
+     "value": 16.214671,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean |jump|",
+     "date": "2026-11-01"
+    }
+   },
+   "war": {
+    "mean": {
+     "value": 28.954793,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean USGC gasoline crack vs Brent, war windows",
+     "date": "2026-11-01"
+    },
+    "kappa": {
+     "value": 0.03615,
+     "unit": "1/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "AR(1) on daily levels, -ln(b)",
+     "date": "2026-11-01"
+    },
+    "sigma": {
+     "value": 3.835249,
+     "unit": "$/bbl/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "std of non-jump AR(1) residuals",
+     "date": "2026-11-01"
+    },
+    "jump_rate": {
+     "value": 1.373297,
+     "unit": "per year",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": ">4.5 robust-sigma residuals",
+     "date": "2026-11-01"
+    },
+    "jump_scale": {
+     "value": 20.568201,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean |jump|",
+     "date": "2026-11-01"
+    }
+   }
+  },
+  "diesel": {
+   "season_fourier": {
+    "value": [
+     -0.49160705730206306,
+     -0.4620888138127046,
+     -0.8497267792112653,
+     0.18480178041217207
+    ],
+    "unit": "$/bbl",
+    "label": "derived",
+    "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+    "method": "2-harmonic Fourier fit of crack minus 365d centred mean, normal regime",
+    "date": "2026-11-01"
+   },
+   "normal": {
+    "mean": {
+     "value": 16.436789,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean USGC diesel crack vs Brent, normal windows",
+     "date": "2026-11-01"
+    },
+    "kappa": {
+     "value": 0.025862,
+     "unit": "1/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "AR(1) on daily levels, -ln(b)",
+     "date": "2026-11-01"
+    },
+    "sigma": {
+     "value": 1.325714,
+     "unit": "$/bbl/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "std of non-jump AR(1) residuals",
+     "date": "2026-11-01"
+    },
+    "jump_rate": {
+     "value": 1.957627,
+     "unit": "per year",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": ">4.5 robust-sigma residuals",
+     "date": "2026-11-01"
+    },
+    "jump_scale": {
+     "value": 8.147503,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean |jump|",
+     "date": "2026-11-01"
+    }
+   },
+   "stressed": {
+    "mean": {
+     "value": 13.558021,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean USGC diesel crack vs Brent, stressed windows",
+     "date": "2026-11-01"
+    },
+    "kappa": {
+     "value": 0.050493,
+     "unit": "1/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "AR(1) on daily levels, -ln(b)",
+     "date": "2026-11-01"
+    },
+    "sigma": {
+     "value": 1.984863,
+     "unit": "$/bbl/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "std of non-jump AR(1) residuals",
+     "date": "2026-11-01"
+    },
+    "jump_rate": {
+     "value": 1.793594,
+     "unit": "per year",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": ">4.5 robust-sigma residuals",
+     "date": "2026-11-01"
+    },
+    "jump_scale": {
+     "value": 10.954282,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean |jump|",
+     "date": "2026-11-01"
+    }
+   },
+   "war": {
+    "mean": {
+     "value": 58.592071,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean USGC diesel crack vs Brent, war windows",
+     "date": "2026-11-01"
+    },
+    "kappa": {
+     "value": 0.061624,
+     "unit": "1/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "AR(1) on daily levels, -ln(b)",
+     "date": "2026-11-01"
+    },
+    "sigma": {
+     "value": 5.306445,
+     "unit": "$/bbl/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "std of non-jump AR(1) residuals",
+     "date": "2026-11-01"
+    },
+    "jump_rate": {
+     "value": 2.746594,
+     "unit": "per year",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": ">4.5 robust-sigma residuals",
+     "date": "2026-11-01"
+    },
+    "jump_scale": {
+     "value": 25.815814,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean |jump|",
+     "date": "2026-11-01"
+    }
+   }
+  },
+  "jet": {
+   "season_fourier": {
+    "value": [
+     0.4331823162878661,
+     -0.481924142527659,
+     -0.29699407115056004,
+     0.49650374494089444
+    ],
+    "unit": "$/bbl",
+    "label": "derived",
+    "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+    "method": "2-harmonic Fourier fit of crack minus 365d centred mean, normal regime",
+    "date": "2026-11-01"
+   },
+   "normal": {
+    "mean": {
+     "value": 14.845563,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean USGC jet crack vs Brent, normal windows",
+     "date": "2026-11-01"
+    },
+    "kappa": {
+     "value": 0.047771,
+     "unit": "1/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "AR(1) on daily levels, -ln(b)",
+     "date": "2026-11-01"
+    },
+    "sigma": {
+     "value": 1.388524,
+     "unit": "$/bbl/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "std of non-jump AR(1) residuals",
+     "date": "2026-11-01"
+    },
+    "jump_rate": {
+     "value": 3.084746,
+     "unit": "per year",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": ">4.5 robust-sigma residuals",
+     "date": "2026-11-01"
+    },
+    "jump_scale": {
+     "value": 10.947164,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean |jump|",
+     "date": "2026-11-01"
+    }
+   },
+   "stressed": {
+    "mean": {
+     "value": 12.171723,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean USGC jet crack vs Brent, stressed windows",
+     "date": "2026-11-01"
+    },
+    "kappa": {
+     "value": 0.107903,
+     "unit": "1/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "AR(1) on daily levels, -ln(b)",
+     "date": "2026-11-01"
+    },
+    "sigma": {
+     "value": 1.990025,
+     "unit": "$/bbl/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "std of non-jump AR(1) residuals",
+     "date": "2026-11-01"
+    },
+    "jump_rate": {
+     "value": 2.690391,
+     "unit": "per year",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": ">4.5 robust-sigma residuals",
+     "date": "2026-11-01"
+    },
+    "jump_scale": {
+     "value": 17.626092,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean |jump|",
+     "date": "2026-11-01"
+    }
+   },
+   "war": {
+    "mean": {
+     "value": 50.405723,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean USGC jet crack vs Brent, war windows",
+     "date": "2026-11-01"
+    },
+    "kappa": {
+     "value": 0.102855,
+     "unit": "1/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "AR(1) on daily levels, -ln(b)",
+     "date": "2026-11-01"
+    },
+    "sigma": {
+     "value": 5.523211,
+     "unit": "$/bbl/day",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "std of non-jump AR(1) residuals",
+     "date": "2026-11-01"
+    },
+    "jump_rate": {
+     "value": 2.746594,
+     "unit": "per year",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": ">4.5 robust-sigma residuals",
+     "date": "2026-11-01"
+    },
+    "jump_scale": {
+     "value": 25.291605,
+     "unit": "$/bbl",
+     "label": "derived",
+     "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+     "method": "mean |jump|",
+     "date": "2026-11-01"
+    }
+   }
+  }
+ },
+ "correlation": {
+  "order": [
+   "brent",
+   "gasoline",
+   "diesel",
+   "jet"
+  ],
+  "normal": {
+   "value": [
+    [
+     1.0,
+     -0.1979,
+     -0.2164,
+     -0.1662
+    ],
+    [
+     -0.1979,
+     1.0,
+     0.4734,
+     0.5675
+    ],
+    [
+     -0.2164,
+     0.4734,
+     1.0,
+     0.7295
+    ],
+    [
+     -0.1662,
+     0.5675,
+     0.7295,
+     1.0
+    ]
+   ],
+   "unit": "-",
+   "label": "derived",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "Pearson correlation of daily Brent log-returns and crack changes, normal",
+   "date": "2026-11-01"
+  },
+  "stressed": {
+   "value": [
+    [
+     1.0,
+     -0.0732,
+     -0.2952,
+     -0.141
+    ],
+    [
+     -0.0732,
+     1.0,
+     0.3134,
+     0.1803
+    ],
+    [
+     -0.2952,
+     0.3134,
+     1.0,
+     0.5022
+    ],
+    [
+     -0.141,
+     0.1803,
+     0.5022,
+     1.0
+    ]
+   ],
+   "unit": "-",
+   "label": "derived",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "Pearson correlation of daily Brent log-returns and crack changes, stressed",
+   "date": "2026-11-01"
+  },
+  "war": {
+   "value": [
+    [
+     1.0,
+     -0.3047,
+     -0.0323,
+     -0.0266
+    ],
+    [
+     -0.3047,
+     1.0,
+     0.4147,
+     0.4186
+    ],
+    [
+     -0.0323,
+     0.4147,
+     1.0,
+     0.857
+    ],
+    [
+     -0.0266,
+     0.4186,
+     0.857,
+     1.0
+    ]
+   ],
+   "unit": "-",
+   "label": "derived",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "Pearson correlation of daily Brent log-returns and crack changes, war",
+   "date": "2026-11-01"
+  }
+ },
+ "regional_nyh_usgc": {
+  "gasoline": {
+   "mean": {
+    "value": 2.519189,
+    "unit": "$/bbl",
+    "label": "derived",
+    "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+    "method": "NYH minus USGC spot, normal regime",
+    "date": "2026-11-01"
+   },
+   "kappa": {
+    "value": 0.155811,
+    "unit": "1/day",
+    "label": "derived",
+    "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+    "method": "AR(1)",
+    "date": "2026-11-01"
+   },
+   "sigma": {
+    "value": 0.665908,
+    "unit": "$/bbl/day",
+    "label": "derived",
+    "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+    "method": "robust sigma of AR(1) residuals",
+    "date": "2026-11-01"
+   },
+   "band_lo": {
+    "value": -2.52,
+    "unit": "$/bbl",
+    "label": "derived",
+    "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+    "method": "5th percentile, normal regime",
+    "date": "2026-11-01"
+   },
+   "band_hi": {
+    "value": 8.8704,
+    "unit": "$/bbl",
+    "label": "derived",
+    "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+    "method": "95th percentile, normal regime",
+    "date": "2026-11-01"
+   }
+  },
+  "diesel": {
+   "mean": {
+    "value": 2.408975,
+    "unit": "$/bbl",
+    "label": "derived",
+    "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+    "method": "NYH minus USGC spot, normal regime",
+    "date": "2026-11-01"
+   },
+   "kappa": {
+    "value": 0.074713,
+    "unit": "1/day",
+    "label": "derived",
+    "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+    "method": "AR(1)",
+    "date": "2026-11-01"
+   },
+   "sigma": {
+    "value": 0.298387,
+    "unit": "$/bbl/day",
+    "label": "derived",
+    "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+    "method": "robust sigma of AR(1) residuals",
+    "date": "2026-11-01"
+   },
+   "band_lo": {
+    "value": 0.294,
+    "unit": "$/bbl",
+    "label": "derived",
+    "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+    "method": "5th percentile, normal regime",
+    "date": "2026-11-01"
+   },
+   "band_hi": {
+    "value": 6.174,
+    "unit": "$/bbl",
+    "label": "derived",
+    "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+    "method": "95th percentile, normal regime",
+    "date": "2026-11-01"
+   }
+  }
+ },
+ "regime": {
+  "states": [
+   "normal",
+   "stressed",
+   "war"
+  ],
+  "daily_transition": {
+   "value": [
+    [
+     0.9993,
+     0.0005,
+     0.0002
+    ],
+    [
+     0.01,
+     0.988,
+     0.002
+    ],
+    [
+     0.004,
+     0.004,
+     0.992
+    ]
+   ],
+   "unit": "prob/day",
+   "label": "estimate",
+   "source": "labelled episodes 2005-2026 (Katrina, GFC, COVID, 2022, 2026)",
+   "method": "expected durations: normal ~4y, stressed ~3m, war ~5m; base rates set so ~1 stress episode per 5y",
+   "date": "2026-11-01"
+  }
+ },
+ "snapshot_now": {
+  "date": {
+   "value": "2026-10-27",
+   "unit": "date",
+   "label": "data",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "last common observation",
+   "date": "2026-11-01"
+  },
+  "brent": {
+   "value": 123.1,
+   "unit": "$/bbl",
+   "label": "data",
+   "source": "EIA Brent spot via FRED DCOILBRENTEU",
+   "method": "last observation",
+   "date": "2026-11-01"
+  },
+  "crack_usgc_gasoline": {
+   "value": 7.142,
+   "unit": "$/bbl",
+   "label": "data",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "last observation",
+   "date": "2026-11-01"
+  },
+  "crack_usgc_diesel": {
+   "value": 77.114,
+   "unit": "$/bbl",
+   "label": "data",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "last observation",
+   "date": "2026-11-01"
+  },
+  "crack_usgc_jet": {
+   "value": 63.548,
+   "unit": "$/bbl",
+   "label": "data",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "last observation",
+   "date": "2026-11-01"
+  },
+  "nyh_usgc_gasoline": {
+   "value": -11.844,
+   "unit": "$/bbl",
+   "label": "data",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "last observation",
+   "date": "2026-11-01"
+  },
+  "nyh_usgc_diesel": {
+   "value": -3.36,
+   "unit": "$/bbl",
+   "label": "data",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "last observation",
+   "date": "2026-11-01"
+  },
+  "us_distillate_stocks_vs_5y_pct": {
+   "value": -9.760025,
+   "unit": "%",
+   "label": "data",
+   "source": "EIA WPSR WDISTUS1",
+   "method": "latest week vs same-week mean of prior 5 years",
+   "date": "2026-11-01"
+  },
+  "us_gasoline_stocks_vs_5y_pct": {
+   "value": -1.833401,
+   "unit": "%",
+   "label": "data",
+   "source": "EIA WPSR WGTSTUS1",
+   "method": "latest week vs same-week mean of prior 5 years",
+   "date": "2026-11-01"
+  }
+ },
+ "snapshot_normal_2025": {
+  "date": {
+   "value": "2025-11-03",
+   "unit": "date",
+   "label": "data",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "start date of the normal baseline",
+   "date": "2026-11-01"
+  },
+  "brent": {
+   "value": 64.181333,
+   "unit": "$/bbl",
+   "label": "data",
+   "source": "EIA Brent spot via FRED",
+   "method": "mean 20 Oct - 7 Nov 2025",
+   "date": "2026-11-01"
+  },
+  "crack_usgc_gasoline": {
+   "value": 16.539867,
+   "unit": "$/bbl",
+   "label": "data",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "mean 20 Oct - 7 Nov 2025",
+   "date": "2026-11-01"
+  },
+  "crack_usgc_diesel": {
+   "value": 31.984667,
+   "unit": "$/bbl",
+   "label": "data",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "mean 20 Oct - 7 Nov 2025",
+   "date": "2026-11-01"
+  },
+  "crack_usgc_jet": {
+   "value": 30.027467,
+   "unit": "$/bbl",
+   "label": "data",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "mean 20 Oct - 7 Nov 2025",
+   "date": "2026-11-01"
+  },
+  "nyh_usgc_gasoline": {
+   "value": 0.0644,
+   "unit": "$/bbl",
+   "label": "data",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "mean",
+   "date": "2026-11-01"
+  },
+  "nyh_usgc_diesel": {
+   "value": 6.1124,
+   "unit": "$/bbl",
+   "label": "data",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "mean",
+   "date": "2026-11-01"
+  }
+ },
+ "window_means": {
+  "now_last90": {
+   "value": {
+    "brent": 109.22428571428573,
+    "gasoline": 36.40304761904761,
+    "diesel": 84.20238095238095,
+    "jet": 66.14571428571429,
+    "nyh_usgc_gasoline": -9.699999999999996,
+    "nyh_usgc_diesel": 4.136666666666665
+   },
+   "unit": "$/bbl",
+   "label": "derived",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "means over 2026-07-29 to 2026-10-27",
+   "date": "2026-11-01"
+  },
+  "now_last30": {
+   "value": {
+    "brent": 123.70954545454543,
+    "gasoline": 19.506636363636364,
+    "diesel": 77.58690909090909,
+    "jet": 64.81127272727274,
+    "nyh_usgc_gasoline": -12.932181818181816,
+    "nyh_usgc_diesel": 7.878818181818182
+   },
+   "unit": "$/bbl",
+   "label": "derived",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "means over 2026-09-27 to 2026-10-27",
+   "date": "2026-11-01"
+  },
+  "normal_2023_2025": {
+   "value": {
+    "brent": 77.35234652114598,
+    "gasoline": 17.020679399727147,
+    "diesel": 25.211653478854025,
+    "jet": 22.843094133697136,
+    "nyh_usgc_gasoline": 2.7798499317871763,
+    "nyh_usgc_diesel": 3.697718963165075
+   },
+   "unit": "$/bbl",
+   "label": "derived",
+   "source": "EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH)",
+   "method": "means over 2023-01-01 to 2025-12-31",
+   "date": "2026-11-01"
+  }
+ },
+ "hurricane": {
+  "gulf_hurricanes_per_year_by_month": {
+   "value": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0333,
+    0.15,
+    0.3333,
+    0.35,
+    0.15,
+    0.0333,
+    0.0
+   ],
+   "unit": "storms/yr",
+   "label": "derived",
+   "source": "NOAA HURDAT2 1966-2025",
+   "method": "count of distinct hurricanes with a fix in 25-31N, 86-98W, per month",
+   "date": "2026-11-01"
+  }
+ },
+ "distances_nm": {
+  "value": {
+   "ARA-NYH": 3301,
+   "USGC-ARA": 5015,
+   "ARA-WAF": 4246,
+   "WAF-ARA": 4246,
+   "MEG-ARA-suez": 6500,
+   "MEG-ARA-cape": 11283,
+   "FUJ-ARA-suez": 6123,
+   "FUJ-ARA-cape": 10906,
+   "MEG-SIN": 3742,
+   "FUJ-SIN": 3365,
+   "USGC-NYH": 1885,
+   "MEG-FUJ": 464,
+   "USGC-WAF": 6097,
+   "SIN-ARA-suez": 8367
+  },
+  "unit": "nm",
+  "label": "derived",
+  "source": "searoute 1.6 (Apache-2.0) on Eurostat MARNET",
+  "method": "shortest sea path between representative hub coordinates",
+  "date": "2026-11-01"
+ }
+}

@@ -1,0 +1,54 @@
+{
+ "brent": {
+  "excess_kurtosis_min": 1.0353360398089841,
+  "excess_kurtosis_hist": 2.58834009952246,
+  "sq_acf_1_10_hist": [
+   0.09975441606471962,
+   0.08906237695395675,
+   0.08766015613689195,
+   0.06053531745367846,
+   0.08141904554044924,
+   0.08411920378796164,
+   0.09735993840322012,
+   0.06850630925385952,
+   0.08634065243427012,
+   0.03850587239954241
+  ],
+  "annual_vol_normal": 0.318031236954679,
+  "annual_vol_war": 0.6321553980267517
+ },
+ "cracks": {
+  "gasoline": {
+   "half_life_days": 11.61966249679571,
+   "excess_kurtosis_dchg": 626.2551684286664,
+   "season_sign_jun_minus_dec": 1.0
+  },
+  "diesel": {
+   "half_life_days": 26.801656868811495,
+   "excess_kurtosis_dchg": 86.02233947386232,
+   "season_sign_jun_minus_dec": 1.0
+  },
+  "jet": {
+   "half_life_days": 14.509837541586453,
+   "excess_kurtosis_dchg": 743.9608303528688,
+   "season_sign_jun_minus_dec": -1.0
+  }
+ },
+ "correlation": {
+  "mean_abs_crack_corr_normal": 0.5901333333333333,
+  "mean_abs_crack_corr_war": 0.5634333333333333,
+  "mean_abs_crack_corr_stressed": 0.3319666666666667
+ },
+ "regional": {
+  "gasoline": {
+   "containment_normal": 0.9392798305483643,
+   "half_life_days": 4.448652484622339,
+   "breakout_share_war": 0.32608695652173914
+  },
+  "diesel": {
+   "containment_normal": 0.9442221699223347,
+   "half_life_days": 9.277499064009405,
+   "breakout_share_war": 0.32608695652173914
+  }
+ }
+}

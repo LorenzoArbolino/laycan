@@ -1,0 +1,23 @@
+{
+  "name": "laycan",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/engine", "packages/cli", "apps/web"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check:data": "node scripts/check-licensed-data.mjs",
+    "play": "npm run play -w @laycan/cli --",
+    "dev": "npm run dev -w @laycan/web",
+    "build": "npm run build -w @laycan/web",
+    "e2e": "npm run e2e -w @laycan/web"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "fast-check": "4.10.2",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
+  }
+}

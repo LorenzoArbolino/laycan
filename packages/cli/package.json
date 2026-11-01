@@ -1,0 +1,9 @@
+{
+  "name": "@laycan/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "laycan": "src/main.ts" },
+  "scripts": { "play": "tsx src/main.ts" },
+  "dependencies": { "@laycan/engine": "0.1.0" }
+}
