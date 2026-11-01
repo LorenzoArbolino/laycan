@@ -899,6 +899,190 @@
    "date": "2026-11-01"
   }
  },
+ "fundamentals": {
+  "util_kappa": {
+   "value": 0.015876,
+   "unit": "1/business day",
+   "label": "derived",
+   "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean",
+   "method": "AR(1) on weekly US utilisation deviation, converted to business days",
+   "date": "2026-11-01"
+  },
+  "util_sigma": {
+   "value": 0.797674,
+   "unit": "pp/business day",
+   "label": "derived",
+   "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean",
+   "method": "weekly AR(1) residual sd / sqrt(5)",
+   "date": "2026-11-01"
+  },
+  "util_sd": {
+   "value": 4.650513,
+   "unit": "pp",
+   "label": "derived",
+   "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean",
+   "method": "sd of US utilisation deviation",
+   "date": "2026-11-01"
+  },
+  "util_min": {
+   "value": -31.3,
+   "unit": "pp",
+   "label": "data",
+   "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean",
+   "method": "largest shortfall (2021-02-26, Winter Storm Uri)",
+   "date": "2026-11-01"
+  },
+  "diesel": {
+   "stock_kappa": {
+    "value": 0.004,
+    "unit": "1/business day",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean",
+    "method": "weekly regression of stock-deviation change on its level, converted (floored at 0.004)",
+    "date": "2026-11-01"
+   },
+   "stock_sigma": {
+    "value": 0.765579,
+    "unit": "%/business day",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean",
+    "method": "weekly residual sd / sqrt(5)",
+    "date": "2026-11-01"
+   },
+   "util_to_stock_ols": {
+    "value": 0.003457,
+    "unit": "%/business day per pp",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean",
+    "method": "OLS of weekly stock change on utilisation deviation (attenuated by imports, demand and reporting noise; not used)",
+    "date": "2026-11-01"
+   },
+   "crack_per_stock": {
+    "value": -0.243668,
+    "unit": "$/bbl per %",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean; EIA spot via FRED",
+    "method": "OLS of weekly mean USGC crack on stock deviation, normal-regime years 2010-2019 and 2023-2025",
+    "date": "2026-11-01"
+   },
+   "ex_stock_kappa": {
+    "value": 0.033407,
+    "unit": "1/day",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean; EIA spot via FRED",
+    "method": "AR(1) on the normal-regime crack minus slope \u00d7 stock deviation",
+    "date": "2026-11-01"
+   },
+   "ex_stock_sigma": {
+    "value": 1.342941,
+    "unit": "$/bbl/day",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean; EIA spot via FRED",
+    "method": "sd of non-jump residuals of that AR(1)",
+    "date": "2026-11-01"
+   }
+  },
+  "gasoline": {
+   "stock_kappa": {
+    "value": 0.005771,
+    "unit": "1/business day",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean",
+    "method": "weekly regression of stock-deviation change on its level, converted (floored at 0.004)",
+    "date": "2026-11-01"
+   },
+   "stock_sigma": {
+    "value": 0.503821,
+    "unit": "%/business day",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean",
+    "method": "weekly residual sd / sqrt(5)",
+    "date": "2026-11-01"
+   },
+   "util_to_stock_ols": {
+    "value": 0.003167,
+    "unit": "%/business day per pp",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean",
+    "method": "OLS of weekly stock change on utilisation deviation (attenuated by imports, demand and reporting noise; not used)",
+    "date": "2026-11-01"
+   },
+   "crack_per_stock": {
+    "value": -0.640488,
+    "unit": "$/bbl per %",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean; EIA spot via FRED",
+    "method": "OLS of weekly mean USGC crack on stock deviation, normal-regime years 2010-2019 and 2023-2025",
+    "date": "2026-11-01"
+   },
+   "ex_stock_kappa": {
+    "value": 0.070695,
+    "unit": "1/day",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean; EIA spot via FRED",
+    "method": "AR(1) on the normal-regime crack minus slope \u00d7 stock deviation",
+    "date": "2026-11-01"
+   },
+   "ex_stock_sigma": {
+    "value": 1.692783,
+    "unit": "$/bbl/day",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean; EIA spot via FRED",
+    "method": "sd of non-jump residuals of that AR(1)",
+    "date": "2026-11-01"
+   }
+  },
+  "jet": {
+   "stock_kappa": {
+    "value": 0.008775,
+    "unit": "1/business day",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean",
+    "method": "weekly regression of stock-deviation change on its level, converted (floored at 0.004)",
+    "date": "2026-11-01"
+   },
+   "stock_sigma": {
+    "value": 0.958335,
+    "unit": "%/business day",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean",
+    "method": "weekly residual sd / sqrt(5)",
+    "date": "2026-11-01"
+   },
+   "util_to_stock_ols": {
+    "value": 0.003755,
+    "unit": "%/business day per pp",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean",
+    "method": "OLS of weekly stock change on utilisation deviation (attenuated by imports, demand and reporting noise; not used)",
+    "date": "2026-11-01"
+   },
+   "crack_per_stock": {
+    "value": -0.191669,
+    "unit": "$/bbl per %",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean; EIA spot via FRED",
+    "method": "OLS of weekly mean USGC crack on stock deviation, normal-regime years 2010-2019 and 2023-2025",
+    "date": "2026-11-01"
+   },
+   "ex_stock_kappa": {
+    "value": 0.047969,
+    "unit": "1/day",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean; EIA spot via FRED",
+    "method": "AR(1) on the normal-regime crack minus slope \u00d7 stock deviation",
+    "date": "2026-11-01"
+   },
+   "ex_stock_sigma": {
+    "value": 1.40065,
+    "unit": "$/bbl/day",
+    "label": "derived",
+    "source": "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean; EIA spot via FRED",
+    "method": "sd of non-jump residuals of that AR(1)",
+    "date": "2026-11-01"
+   }
+  }
+ },
  "hurricane": {
   "gulf_hurricanes_per_year_by_month": {
    "value": [

@@ -21,6 +21,7 @@ export interface ReplayRow {
   sd: number | null;
   sg: number | null;
   sj: number | null;
+  ud?: number | null;
 }
 
 interface EpisodeData {

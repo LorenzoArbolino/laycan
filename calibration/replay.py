@@ -42,7 +42,7 @@ def fred(sid: str) -> pd.Series:
     return pd.to_numeric(df.set_index("date")[sid], errors="coerce")
 
 
-def stock_dev(sid: str) -> pd.Series:
+def stock_dev(sid: str, pct: bool = True) -> pd.Series:
     s = pd.read_csv(RAW / "eia" / f"{sid}.csv", parse_dates=["date"]).set_index("date")["value"].astype(float)
     wk = s.index.isocalendar().week.astype(int).values
     out = []
@@ -50,7 +50,7 @@ def stock_dev(sid: str) -> pd.Series:
         hist = s[(s.index.year >= d.year - 5) & (s.index.year < d.year)]
         hw = hist.index.isocalendar().week.astype(int).values
         m = hist[np.abs(hw - wk[i]) <= 1].mean()
-        out.append((v / m - 1) * 100 if m == m else np.nan)
+        out.append(((v / m - 1) * 100 if pct else v - m) if m == m else np.nan)
     return pd.Series(out, index=s.index)
 
 
@@ -68,11 +68,11 @@ def main() -> None:
         },
         axis=1,
     )
-    stocks = pd.concat({"sd": stock_dev("WDISTUS1"), "sg": stock_dev("WGTSTUS1"), "sj": stock_dev("WKJSTUS1")}, axis=1)
+    stocks = pd.concat({"sd": stock_dev("WDISTUS1"), "sg": stock_dev("WGTSTUS1"), "sj": stock_dev("WKJSTUS1"), "ud": stock_dev("WPULEUS3", pct=False)}, axis=1)
     out = {
         "meta": {
             "generated": dt.date.today().isoformat(),
-            "source": "U.S. EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH); EIA Weekly Petroleum Status Report stocks (WDISTUS1, WGTSTUS1, WKJSTUS1)",
+            "source": "U.S. EIA daily spot prices via FRED (DCOILBRENTEU, DGASUSGULF, DDFUELUSGULF, DJFUELUSGULF, DGASNYH, DDFUELNYH); EIA Weekly Petroleum Status Report stocks and refinery utilisation (WDISTUS1, WGTSTUS1, WKJSTUS1, WPULEUS3)",
             "fields": {
                 "b": "Brent spot $/bbl",
                 "g": "USGC gasoline crack vs Brent $/bbl",
@@ -83,6 +83,7 @@ def main() -> None:
                 "sd": "US distillate stocks vs 5y same-week mean, %",
                 "sg": "US gasoline stocks vs 5y same-week mean, %",
                 "sj": "US jet stocks vs 5y same-week mean, %",
+                "ud": "US refinery utilisation vs 5y same-week mean, percentage points",
             },
         },
         "episodes": [],
@@ -97,7 +98,7 @@ def main() -> None:
             row = {"t": d.strftime("%Y-%m-%d")}
             for k in ["b", "g", "d", "j", "ng", "nd"]:
                 row[k] = round(float(r[k]), 3)
-            for k in ["sd", "sg", "sj"]:
+            for k in ["sd", "sg", "sj", "ud"]:
                 v = st.loc[d, k]
                 row[k] = None if pd.isna(v) else round(float(v), 2)
             rows.append(row)

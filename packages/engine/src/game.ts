@@ -27,7 +27,20 @@ import {
   type Voyage,
 } from "./book/types";
 import { contractPrice, equity, equityBreakdown, futuresPrice, monthBusinessDays, type EquityBreakdown } from "./book/valuation";
-import { COUNTERPARTIES, requestQuote, weeklyOffers, type Offer } from "./agents/counterparties";
+import {
+  ROSTER,
+  defaultProbability,
+  emptyRelations,
+  maybeTender,
+  negotiate,
+  requestQuote,
+  tenderCompetition,
+  weeklyOffers,
+  type Offer,
+  type OfferContext,
+  type Relation,
+  type Tender,
+} from "./agents/counterparties";
 import { isBusinessDay, isoDate, parseDate } from "./core/calendar";
 import { exp, sqrt } from "./core/dmath";
 import { Rng, type RngState } from "./core/rng";
@@ -120,6 +133,8 @@ export interface GameState {
   /** attribution accumulated by actions since the last daily step */
   pending: Attribution;
   lastEquity: number;
+  relations: Record<string, Relation>;
+  tenders: Tender[];
 }
 
 export type Action =
@@ -131,6 +146,8 @@ export type Action =
   | { type: "lease"; hub: HubId; capacityBbl: number; months: number }
   | { type: "sellSpot"; cargoId: string; qtyBbl?: number }
   | { type: "divert"; voyageId: string; to: HubId }
+  | { type: "counter"; offerId: string; diff: number }
+  | { type: "tenderBid"; tenderId: string; diff: number }
   | { type: "blend"; hub: HubId; volumeBbl: number; recipe?: Recipe };
 
 export interface ActionResult {
@@ -163,6 +180,8 @@ export class Game {
 
   private constructor(state: GameState) {
     this.state = state;
+    state.relations ??= emptyRelations();
+    state.tenders ??= [];
     this.scenario = state.scenario;
     this.cfg = makeConfig(state.scenario);
     this.rMarket = new Rng(state.rng.market);
@@ -213,6 +232,8 @@ export class Game {
       maxResidual: 0,
       pending: emptyAttribution(),
       lastEquity: book.cash,
+      relations: emptyRelations(),
+      tenders: [],
     };
     const g = new Game(state);
     g.burnIn();
@@ -280,7 +301,9 @@ export class Game {
     for (const [key, a, hl] of ev.structure ?? []) add({ kind: "structure", key }, a, hl);
     for (const [cls, a, hl] of ev.tce ?? []) add({ kind: "tce", cls }, a, hl);
     for (const [hub, product, a, hl] of ev.diff ?? []) add({ kind: "diff", hub, product }, a, hl);
-    for (const [product, a, hl] of ev.stocks ?? []) add({ kind: "stocks", product }, a, hl);
+    for (const [product, a, hl] of ev.stocks ?? []) add({ kind: "stocks", product, region: "US" }, (a * 0.6931471805599453) / hl, hl);
+    for (const [region, product, a, hl] of ev.regionStocks ?? []) add({ kind: "stocks", product, region }, (a * 0.6931471805599453) / hl, hl);
+    for (const [region, a, hl] of ev.util ?? []) add({ kind: "util", region }, a, hl);
     ctx.news.push({ day: m.day, kind: "event", severity: ev.severity ?? "warn", title: ev.title, body: ev.body ?? "" });
   }
 
@@ -438,9 +461,18 @@ export class Game {
       case "futures":
         return this.tradeFutures(a.contract, a.y, a.m, a.lots);
       case "quote": {
-        const o = requestQuote(this.rQuotes, this.market, `q${this.state.nextOfferId++}`, this.nextDecisionDay(), a);
+        const o = requestQuote(this.rQuotes, this.market, `q${this.state.nextOfferId++}`, this.nextDecisionDay(), this.offerContext(), a);
+        if (!o) return { ok: false, message: `Nobody will quote ${a.side === "buy" ? "a" : "a bid for"} ${a.product} ${a.incoterm} ${a.hub} right now.` };
         this.state.offers.push(o);
         return { ok: true, message: `Quote received from ${o.cptyName}: index ${o.pricing.diff >= 0 ? "+" : ""}${o.pricing.diff.toFixed(2)} $/bbl.`, id: o.id };
+      }
+      case "counter":
+        return this.counter(a.offerId, a.diff);
+      case "tenderBid": {
+        const t = this.state.tenders.find((x) => x.id === a.tenderId && x.status === "open");
+        if (!t) return { ok: false, message: "Tender closed or unknown." };
+        t.bid = Math.round(a.diff * 100) / 100;
+        return { ok: true, message: `Bid submitted to ${t.cptyName}: index ${t.bid >= 0 ? "+" : ""}${t.bid.toFixed(2)} $/bbl. Award on ${isoDate(t.closeDay)}.` };
       }
       case "lease":
         return this.lease(a.hub, a.capacityBbl, a.months);
@@ -496,11 +528,14 @@ export class Game {
       lcOpen: false,
       defaultRisk: o.payment.kind === "open" && o.playerSide === "sell" ? o.defaultRisk : 0,
     };
+    const cp = ROSTER.find((x) => x.id === o.cpty);
     if (d.pricing.kind === "month" && d.pricing.month) d.window = monthBusinessDays(d.pricing.month.y, d.pricing.month.m);
     // Counterparty-performed delivery dates (their vessel): drawn from a stream keyed by the deal id
     if ((d.side === "buy" && d.incoterm !== "FOB") || (d.side === "sell" && (d.incoterm === "FOB" || d.incoterm === "ITT"))) {
       const kr = Rng.stream(this.state.seed, `deal:${d.id}`);
       d.plannedDelivery = d.laycan[0] + kr.int(d.laycan[1] - d.laycan[0] + 1);
+      // Counterparty performance: unreliable sellers deliver late
+      if (d.side === "buy" && cp && !kr.bernoulli(cp.reliability)) d.plannedDelivery += 2 + kr.int(6);
     }
     this.post("execution", () => {
       this.book.deals.push(d);
@@ -514,7 +549,7 @@ export class Game {
         d.lcOpen = true;
       });
     }
-    let msg = `${d.side === "buy" ? "Bought" : "Sold"} ${(d.qty / 1000).toFixed(0)} kbbl ${d.product} ${d.incoterm} ${d.hub} from ${COUNTERPARTIES.find((c) => c.id === d.cpty)?.name ?? d.cpty}.`;
+    let msg = `${d.side === "buy" ? "Bought" : "Sold"} ${(d.qty / 1000).toFixed(0)} kbbl ${d.product} ${d.incoterm} ${d.hub} ${d.side === "buy" ? "from" : "to"} ${cp?.name ?? d.cpty}.`;
     if (charter) {
       const r = this.charter(charter.routeId, charter.via, d.laycan[0], d.product, d.id, undefined);
       msg += " " + r.message;
@@ -662,11 +697,95 @@ export class Game {
     return Math.min(s + 7 * k, this.state.endDay);
   }
 
+  offerContext(): OfferContext {
+    return { regime: this.market.regime, relations: this.state.relations };
+  }
+
   private newOffers() {
     const expires = this.nextDecisionDay();
-    const offers = weeklyOffers(this.rCpty, this.market, this.state.nextOfferId, expires);
-    this.state.nextOfferId += offers.length;
+    const offers = weeklyOffers(this.rCpty, this.market, this.state.nextOfferId, expires, this.offerContext());
+    this.state.nextOfferId += 12;
     this.state.offers = offers;
+    const t = maybeTender(this.rCpty, this.market, `tn${this.state.nextOfferId++}`, this.offerContext());
+    if (t) {
+      this.state.tenders.push(t);
+      this.state.news.push({ day: this.day, kind: "market", severity: "info", title: `Tender: ${t.cptyName} ${t.playerSide === "sell" ? "buys" : "sells"} ${(t.qtyBbl / 1000).toFixed(0)} kbbl ${t.product} ${t.incoterm} ${t.hub}`, body: `Sealed bids close ${isoDate(t.closeDay)}.` });
+    }
+  }
+
+  private relate(cptyId: string, delta: number, kind: "deal" | "fail" | "none" = "none") {
+    const r = this.state.relations[cptyId];
+    if (!r) return;
+    r.score = Math.max(-1, Math.min(1, r.score + delta));
+    if (kind === "deal") r.deals++;
+    if (kind === "fail") r.fails++;
+  }
+
+  private counter(offerId: string, diff: number): ActionResult {
+    const o = this.state.offers.find((x) => x.id === offerId);
+    if (!o) return { ok: false, message: "Offer not found or expired." };
+    if (o.agreed) return { ok: false, message: "Price already agreed: accept it." };
+    const c = ROSTER.find((x) => x.id === o.cpty);
+    if (!c) return { ok: false, message: "Unknown counterparty." };
+    const res = negotiate(Rng.stream(this.state.seed, `neg:${o.id}:${o.rounds}`), o, diff, c, this.state.relations[c.id]?.score ?? 0);
+    const reprice = (d: number) => {
+      o.pricing.diff = d;
+      o.indicative = (o.pricing.kind === "fixed" ? o.pricing.fixedPrice! : hubPrice(this.market, o.hub, o.product)) + d;
+    };
+    const fmt = (d: number) => `index ${d >= 0 ? "+" : ""}${d.toFixed(2)}`;
+    if (res.outcome === "accepted") {
+      reprice(res.diff);
+      o.agreed = true;
+      return { ok: true, message: `${c.name} agrees at ${fmt(res.diff)}. The offer is yours to take.` };
+    }
+    if (res.outcome === "countered") {
+      reprice(res.diff);
+      o.rounds++;
+      return { ok: true, message: `${c.name} comes back at ${fmt(res.diff)}.` };
+    }
+    this.state.offers = this.state.offers.filter((x) => x !== o);
+    this.relate(c.id, -0.02);
+    return { ok: false, message: `${c.name} walks away.` };
+  }
+
+  private resolveTenders() {
+    for (const t of this.state.tenders) {
+      if (t.status !== "open" || this.day < t.closeDay) continue;
+      const best = tenderCompetition(Rng.stream(this.state.seed, `tender:${t.id}`), t, this.market);
+      t.winning = best;
+      const wins = t.bid !== undefined && (t.playerSide === "sell" ? t.bid < best : t.bid > best);
+      if (!wins) {
+        t.status = t.bid === undefined ? "cancelled" : "lost";
+        if (t.bid !== undefined) this.alert(`Tender lost: ${t.cptyName}`, `Awarded at index ${best >= 0 ? "+" : ""}${best.toFixed(2)}; your bid was ${t.bid >= 0 ? "+" : ""}${t.bid.toFixed(2)}.`, "info");
+        continue;
+      }
+      const c = ROSTER.find((x) => x.id === t.cpty)!;
+      const d: Deal = {
+        id: this.id(t.playerSide === "buy" ? "P" : "S"),
+        side: t.playerSide,
+        cpty: c.id,
+        product: t.product,
+        hub: t.hub,
+        incoterm: t.incoterm,
+        qtyNominal: t.qtyBbl,
+        qty: t.qtyBbl,
+        tolPct: 5,
+        tolHolder: t.playerSide === "buy" ? "player" : "cpty",
+        laycan: t.laycan,
+        pricing: { kind: "bl5", diff: t.bid! },
+        payment: c.payment,
+        status: "open",
+        createdDay: this.day,
+        fixings: [],
+        lcOpen: false,
+        defaultRisk: t.playerSide === "sell" && c.payment.kind === "open" ? defaultProbability(c, this.market.regime) : 0,
+        note: `tender ${t.id}`,
+      };
+      this.post("execution", () => this.book.deals.push(d));
+      t.status = "won";
+      t.dealId = d.id;
+      this.alert(`Tender won: ${t.cptyName}`, `${t.playerSide === "sell" ? "You deliver" : "You lift"} ${(t.qtyBbl / 1000).toFixed(0)} kbbl ${t.product} ${t.incoterm} ${t.hub} at index ${t.bid! >= 0 ? "+" : ""}${t.bid!.toFixed(2)} (next best ${best >= 0 ? "+" : ""}${best.toFixed(2)}). Deal ${d.id}.`, "warn");
+    }
   }
 
   /** Run day by day until the next weekly decision point (or the end). Returns news generated meanwhile. */
@@ -695,6 +814,7 @@ export class Game {
     this.progressVoyages();
     this.counterpartyDeliveries();
     this.deadlines();
+    this.resolveTenders();
     this.payments();
     this.carryAndInterest();
     this.liquidity();
@@ -859,6 +979,7 @@ export class Game {
         this.book.cash -= qty * PENALTY.late;
       });
       this.alert(`Late delivery on ${s.id}`, `Arrived after the laycan; late-delivery claim settled at $${PENALTY.late}/bbl.`);
+      this.relate(s.cpty, -0.1);
     }
   }
 
@@ -1060,8 +1181,18 @@ export class Game {
     for (const d of this.book.deals) {
       if (d.status !== "open" || d.plannedDelivery === undefined || this.day < d.plannedDelivery) continue;
       if (d.side === "buy") {
-        this.deliverPurchase(d, this.chooseQty(d, Infinity), "tank");
-        this.alert(`Delivery received: ${d.id}`, `${(d.qty / 1000).toFixed(0)} kbbl ${d.product} delivered into your tank at ${d.hub}.`, "info");
+        const cargo = this.deliverPurchase(d, this.chooseQty(d, Infinity), "tank");
+        const late = this.day - d.laycan[1];
+        this.alert(`Delivery received: ${d.id}`, `${(d.qty / 1000).toFixed(0)} kbbl ${d.product} delivered into your tank at ${d.hub}${late > 0 ? `, ${late} days after the laycan` : ""}.`, late > 0 ? "warn" : "info");
+        const cp = ROSTER.find((x) => x.id === d.cpty);
+        const kr = Rng.stream(this.state.seed, `quality:${d.id}`);
+        if (cp && kr.bernoulli(cp.offSpec)) {
+          const disc = 1.5 + 2 * kr.uniform();
+          this.post("quality", () => {
+            cargo.qualityDiscount += disc;
+          });
+          this.alert(`Off-spec delivery from ${cp.name}`, `Inspection finds ${d.id} off-spec: valued $${disc.toFixed(2)}/bbl lower.`);
+        }
       } else {
         const c = this.book.cargoes.find((x) => x.where === "tank" && x.hub === d.hub && x.product === d.product);
         if (c) this.deliverSale(d, c, this.day);
@@ -1078,7 +1209,8 @@ export class Game {
           this.book.cash -= d.qtyNominal * PENALTY.failToLift;
           if (d.lcOpen) this.book.lcUsed -= d.qtyNominal * contractPrice(d, this.market);
         });
-        this.alert(`Failed to lift ${d.id}`, `No vessel nominated within the laycan. Contract cancelled; penalty $${PENALTY.failToLift}/bbl.`, "critical");
+        this.alert(`Failed to lift ${d.id}`, `No vessel nominated within the laycan. Contract cancelled; penalty $${PENALTY.failToLift}/bbl. ${ROSTER.find((x) => x.id === d.cpty)?.name ?? "The seller"} will remember.`, "critical");
+        this.relate(d.cpty, -0.3, "fail");
       }
       if (d.side === "sell" && this.day > d.laycan[1] + 5) {
         const v = d.voyageId ? this.book.voyages.find((x) => x.id === d.voyageId) : undefined;
@@ -1087,7 +1219,8 @@ export class Game {
           d.status = "cancelled";
           this.book.cash -= d.qtyNominal * PENALTY.failToDeliver;
         });
-        this.alert(`Failed to deliver ${d.id}`, `No cargo delivered. Buyer cancels and claims $${PENALTY.failToDeliver}/bbl; the contract's value is lost.`, "critical");
+        this.alert(`Failed to deliver ${d.id}`, `No cargo delivered. Buyer cancels and claims $${PENALTY.failToDeliver}/bbl; the contract's value is lost. ${ROSTER.find((x) => x.id === d.cpty)?.name ?? "The buyer"} will remember.`, "critical");
+        this.relate(d.cpty, -0.3, "fail");
       }
     }
   }
@@ -1099,7 +1232,9 @@ export class Game {
       if (d.pricing.kind !== "fixed" && d.fixings.length < n) continue;
       const P = contractPrice(d, this.market);
       const kr = Rng.stream(this.state.seed, `pay:${d.id}`);
-      if (d.payment.kind === "LC" && d.side === "sell" && !d.note?.includes("LC delay") && kr.bernoulli(0.08)) {
+      const cpr = ROSTER.find((x) => x.id === d.cpty);
+      const lcRisk = cpr && (cpr.rating === "BB" || cpr.rating === "B") ? 0.15 : 0.06;
+      if (d.payment.kind === "LC" && d.side === "sell" && !d.note?.includes("LC delay") && kr.bernoulli(lcRisk)) {
         d.dueDay += 10;
         d.note = (d.note ?? "") + " LC delay";
         this.alert(`LC discrepancy on ${d.id}`, "The bank found a document discrepancy. Payment delayed ~10 days (financing cost).");
@@ -1116,6 +1251,7 @@ export class Game {
       this.post("events", () => {
         this.book.cash += d.side === "sell" ? d.qty * P : -d.qty * P;
         d.status = "settled";
+        this.relate(d.cpty, 0.05, "deal");
         if (d.lcOpen) {
           this.book.lcUsed = Math.max(0, this.book.lcUsed - d.qtyNominal * P);
           d.lcOpen = false;

@@ -1,9 +1,26 @@
 import { useState } from "react";
-import { PRICING_INFO, ROUTES, hubPrice, isoDate, perBbl, type Action, type Game, type HubId, type Offer } from "@laycan/engine";
+import { useState as useLocalState } from "react";
+import { PRICING_INFO, ROSTER, ROUTES, hubPrice, isoDate, perBbl, type Action, type Game, type HubId, type Offer, type Tender } from "@laycan/engine";
 import { kbbl, shortDate, signed } from "../format";
+
+function Negotiate({ o, act }: { o: Offer; act: (a: Action) => void }) {
+  const step = o.playerSide === "buy" ? -0.25 : 0.25;
+  const [diff, setDiff] = useLocalState(Math.round((o.pricing.diff + step) * 100) / 100);
+  if (o.agreed) return <span className="badge data">price agreed: take it</span>;
+  return (
+    <span className="form-row" style={{ display: "inline-flex", gap: 6 }}>
+      <input type="number" step={0.05} value={diff} onChange={(e) => setDiff(Number(e.target.value))} style={{ width: 80 }} aria-label={`Counter for ${o.id}`} />
+      <button className="btn small" onClick={() => act({ type: "counter", offerId: o.id, diff })} data-testid={`counter-${o.id}`}>
+        Counter{o.rounds ? ` (round ${o.rounds + 1})` : ""}
+      </button>
+    </span>
+  );
+}
 
 function OfferCard({ game, o, act }: { game: Game; o: Offer; act: (a: Action) => void }) {
   const m = game.market;
+  const cp = ROSTER.find((c) => c.id === o.cpty);
+  const rel = game.state.relations[o.cpty]?.score ?? 0;
   const routes = o.playerSide === "buy" && o.incoterm === "FOB" ? ROUTES.filter((r) => r.from === o.hub) : [];
   const openVoyages = o.playerSide === "sell" && o.incoterm !== "FOB" && o.incoterm !== "ITT" ? game.book.voyages.filter((v) => v.to === o.hub && !v.saleId && v.status !== "done" && v.status !== "cancelled" && (!v.product || v.product === o.product)) : [];
   const pr = o.pricing.kind === "fixed" ? `fixed ${o.pricing.fixedPrice!.toFixed(2)}` : o.pricing.kind === "month" ? `month avg` : o.pricing.kind === "bl5" ? "5 quotes around B/L" : "5 quotes after B/L";
@@ -24,10 +41,18 @@ function OfferCard({ game, o, act }: { game: Game; o: Offer; act: (a: Action) =>
         </span>
       </div>
       <div className="meta" title={PRICING_INFO[o.pricing.kind]}>
-        {pr} {signed(o.pricing.diff)} $/bbl · {o.payment.kind === "LC" ? "letter of credit" : "open account"} · ±{o.tolPct}% ({o.tolHolder === "player" ? "your option" : "their option"}) · {o.cptyName}
+        {pr} <b>{signed(o.pricing.diff)}</b> $/bbl · {o.payment.kind === "LC" ? "letter of credit" : "open account"} · ±{o.tolPct}% ({o.tolHolder === "player" ? "your option" : "their option"}) · {o.cptyName}{" "}
+        {cp && (
+          <span className={`badge ${cp.rating === "A" ? "data" : cp.rating === "BBB" ? "derived" : "estimate"}`} title={`${cp.blurb} Relationship ${rel >= 0 ? "+" : ""}${rel.toFixed(2)}.`}>
+            {cp.rating}
+          </span>
+        )}
         <div className="muted">
           Index today {hubPrice(m, o.hub, o.product).toFixed(2)} → indicative {o.indicative.toFixed(2)} $/bbl. {o.note}.
         </div>
+      </div>
+      <div style={{ marginTop: 6 }}>
+        <Negotiate key={`${o.id}-${o.rounds}-${o.pricing.diff}`} o={o} act={act} />
       </div>
       {routes.length > 0 && (
         <div className="routes">
@@ -101,6 +126,7 @@ export function OffersPanel({ game, act, hub, clearHub }: { game: Game; act: (a:
           </button>
         </span>
       )}
+      <Tenders game={game} act={act} />
       {offers.length === 0 && <div className="empty">No offers left this week. Ask for a quote or advance to next week.</div>}
       {offers.map((o) => (
         <OfferCard key={o.id} game={game} o={o} act={act} />
@@ -144,6 +170,51 @@ export function OffersPanel({ game, act, hub, clearHub }: { game: Game; act: (a:
           </button>
         </div>
       </details>
+    </div>
+  );
+}
+
+function TenderRow({ t, game, act }: { t: Tender; game: Game; act: (a: Action) => void }) {
+  const [bid, setBid] = useLocalState(t.bid ?? (t.playerSide === "sell" ? 0.6 : -0.2));
+  return (
+    <div className="offer sell" data-testid="tender">
+      <div className="offer-head">
+        <span className="side" style={{ color: "var(--warn)" }}>TENDER</span>
+        <b>
+          {t.cptyName} {t.playerSide === "sell" ? "buys" : "sells"} {(t.qtyBbl / 1000).toFixed(0)} kbbl {t.product}
+        </b>
+        <span>
+          {t.incoterm} {t.hub}
+        </span>
+        <span className="muted">closes {isoDate(t.closeDay)} · laycan {isoDate(t.laycan[0]).slice(5)}</span>
+      </div>
+      <div className="meta">
+        Sealed bids, {t.competitors} competitors. {t.playerSide === "sell" ? "The lowest premium over the index wins." : "The highest premium over the index wins."} Index today {hubPrice(game.market, t.hub, t.product).toFixed(2)} $/bbl.
+      </div>
+      <div className="form-row" style={{ marginTop: 6 }}>
+        <input type="number" step={0.05} value={bid} onChange={(e) => setBid(Number(e.target.value))} style={{ width: 80 }} aria-label={`Bid for ${t.id}`} />
+        <button className="btn small primary" onClick={() => act({ type: "tenderBid", tenderId: t.id, diff: bid })}>
+          {t.bid !== undefined ? `Update bid (now ${signed(t.bid)})` : "Submit bid"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Tenders({ game, act }: { game: Game; act: (a: Action) => void }) {
+  const open = game.state.tenders.filter((t) => t.status === "open");
+  const done = game.state.tenders.filter((t) => t.status === "won" || t.status === "lost").slice(-3);
+  if (!open.length && !done.length) return null;
+  return (
+    <div style={{ marginBottom: 8 }}>
+      {open.map((t) => (
+        <TenderRow key={t.id} t={t} game={game} act={act} />
+      ))}
+      {done.map((t) => (
+        <div key={t.id} className="muted" style={{ fontSize: 12 }}>
+          Tender {t.cptyName} {t.product} {t.hub}: {t.status === "won" ? "won" : "lost"} at {signed(t.bid ?? 0)} (best competitor {signed(t.winning ?? 0)})
+        </div>
+      ))}
     </div>
   );
 }

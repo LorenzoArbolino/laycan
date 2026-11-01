@@ -8,6 +8,7 @@ import {
   CHOKEPOINT_INFO,
   HUB_INFO,
   HUBS,
+  HUB_REGION,
   ROUTES,
   hubPrice,
   perBbl,
@@ -145,6 +146,11 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
           return (
             <g key={h} className="hub" onClick={() => onHub(sel ? null : h)} style={{ cursor: "pointer" }} data-testid={`hub-${h}`}>
               {t && <circle cx={x} cy={y} r={11} fill="none" stroke="var(--accent)" strokeWidth={2} strokeDasharray="3 2" />}
+              {Math.abs(m.stocks[HUB_REGION[h]][product]) >= 3 && (
+                <circle cx={x} cy={y} r={15} fill="none" stroke={m.stocks[HUB_REGION[h]][product] < 0 ? "var(--neg)" : "var(--pos)"} strokeOpacity={0.55} strokeWidth={Math.min(6, 1 + Math.abs(m.stocks[HUB_REGION[h]][product]) / 4)}>
+                  <title>{`${HUB_REGION[h]} ${product} stocks ${m.stocks[HUB_REGION[h]][product] >= 0 ? "+" : ""}${m.stocks[HUB_REGION[h]][product].toFixed(1)}% vs normal`}</title>
+                </circle>
+              )}
               <circle cx={x} cy={y} r={sel ? 9 : 7} fill={sel ? "var(--accent)" : "#fff"} stroke="var(--accent)" strokeWidth={2.5} />
               <text x={x + dx} y={y + dy} textAnchor={anchor} className="hub-label">
                 <tspan fontWeight={700}>{h}</tspan> <tspan className="num">{price.toFixed(1)}</tspan>
@@ -204,6 +210,12 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
         <span>
           <span className="dot" style={{ background: "var(--paper)", borderRadius: 9 }} />
           offers at hub
+        </span>
+        <span>
+          <span className="dot" style={{ background: "var(--neg)", opacity: 0.6, borderRadius: 9 }} />
+          region short /{" "}
+          <span className="dot" style={{ background: "var(--pos)", opacity: 0.6, borderRadius: 9 }} />
+          long ({product} stocks)
         </span>
       </div>
     </section>

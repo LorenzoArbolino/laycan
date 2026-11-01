@@ -5,7 +5,7 @@
  */
 import calibration from "../../../../params/calibration.json" with { type: "json" };
 import type { ProductId } from "../core/units";
-import type { HubId, VesselClass } from "../world/world";
+import type { HubId, RegionId, VesselClass } from "../world/world";
 import { derived, est, type Param } from "./param";
 
 export type Regime = "normal" | "stressed" | "war";
@@ -20,6 +20,7 @@ const cal = calibration as unknown as {
   regime: { states: string[]; daily_transition: CalParam<number[][]> };
   hurricane: { gulf_hurricanes_per_year_by_month: CalParam<number[]> };
   window_means: Record<"now_last90" | "now_last30" | "normal_2023_2025", CalParam<Record<string, number>>>;
+  fundamentals: Record<"util_kappa" | "util_sigma" | "util_sd" | "util_min", CalParam<number>> & Record<ProductId, Record<"stock_kappa" | "stock_sigma" | "util_to_stock_ols" | "crack_per_stock" | "ex_stock_kappa" | "ex_stock_sigma", CalParam<number>>>;
   snapshot_now: Record<string, CalParam<number | string>>;
   snapshot_normal_2025: Record<string, CalParam<number | string>>;
 };
@@ -39,10 +40,12 @@ const jumpCap = (p: CalParam<number>, cap: number): Param => ({
 function crackParams(p: ProductId): CrackParams {
   const c = cal.cracks[p];
   const by = {} as CrackParams["byRegime"];
+  // Normal regime: the crack process net of the stock channel (the engine adds slope × stocks)
+  const fx = cal.fundamentals[p];
   for (const r of REGIMES) {
     by[r] = {
-      kappa: c[r].kappa,
-      sigma: c[r].sigma,
+      kappa: r === "normal" ? fx.ex_stock_kappa! : c[r].kappa,
+      sigma: r === "normal" ? fx.ex_stock_sigma! : c[r].sigma,
       jumpRate: c[r].jump_rate,
       jumpScale: jumpCap(c[r].jump_scale, r === "war" ? 20 : 12),
       mean: c[r].mean,
@@ -65,7 +68,7 @@ export const MODEL = {
     jumpRate: cal.brent.jump_rate!,
     jumpScale: cal.brent.jump_scale!,
     /** weak pull of log-price towards a regime level, so 20-year paths stay plausible */
-    levelKappa: est(0.002, "1/day", "model design", "weak mean reversion of log Brent; half-life ~1 year"),
+    levelKappa: est(0.006, "1/business day", "model design; 2010-2025 Brent stayed mostly within $50-115 outside crises", "mean reversion of log Brent to the regime level; half-life ~5 months, so 52-week games stay plausible"),
     level: { normal: est(75, "$/bbl", "2010-2025 typical range"), stressed: est(60, "$/bbl", "GFC/COVID troughs"), war: est(110, "$/bbl", "2022 and 2026 war averages") } as Record<Regime, Param>,
   },
   cracks: { gasoline: crackParams("gasoline"), diesel: crackParams("diesel"), jet: crackParams("jet") } as Record<ProductId, CrackParams>,
@@ -120,9 +123,23 @@ export const MODEL = {
   },
   hurricane: cal.hurricane.gulf_hurricanes_per_year_by_month as Param<number[]>,
   stocks: {
-    kappa: est(0.012, "1/day", "model design", "inventory deviations mean-revert with a half-life of ~2 months"),
-    sigma: est(0.35, "%/day", "EIA weekly stocks: week-on-week changes of the 5-year deviation are ~1-2 points"),
     structureSlope: est(0.12, "($/bbl/month) per % of stocks", "theory of storage; order of magnitude from 2020 (surplus, contango) and 2022/2026 (deficit, backwardation)", "front monthly spread falls by $0.12/bbl for each 1% of stocks above the 5-year average"),
+  },
+  fundamentals: {
+    utilKappa: cal.fundamentals.util_kappa!,
+    utilSigma: cal.fundamentals.util_sigma!,
+    stockKappa: { gasoline: cal.fundamentals.gasoline.stock_kappa, diesel: cal.fundamentals.diesel.stock_kappa, jet: cal.fundamentals.jet.stock_kappa } as Record<ProductId, Param>,
+    stockSigma: { gasoline: cal.fundamentals.gasoline.stock_sigma, diesel: cal.fundamentals.diesel.stock_sigma, jet: cal.fundamentals.jet.stock_sigma } as Record<ProductId, Param>,
+    crackPerStock: { gasoline: cal.fundamentals.gasoline.crack_per_stock, diesel: cal.fundamentals.diesel.crack_per_stock, jet: cal.fundamentals.jet.crack_per_stock } as Record<ProductId, Param>,
+    /** stock change per business day for one percentage point of utilisation (physics, not the attenuated OLS) */
+    utilToStock: {
+      gasoline: est(0.012, "%/business day per pp", "net pass-through: about a quarter of the US mass balance (1 pp of 17.5 mb/d at ~45% gasoline yield vs ~230 mb stocks)", "between the attenuated weekly OLS (~0.003) and the gross mass balance (~0.05); trade and demand offset the rest"),
+      diesel: est(0.015, "%/business day per pp", "net pass-through: about a quarter of the US mass balance (1 pp of 17.5 mb/d at ~30% distillate yield vs ~120 mb stocks)", "between the attenuated weekly OLS (~0.003) and the gross mass balance (~0.06)"),
+      jet: est(0.01, "%/business day per pp", "net pass-through: about a quarter of the US mass balance (1 pp of 17.5 mb/d at ~10% jet yield vs ~42 mb stocks)", "between the attenuated weekly OLS (~0.004) and the gross mass balance (~0.04)"),
+    } as Record<ProductId, Param>,
+    arbFlow: est(0.04, "%/business day per $/bbl", "model design", "trade flows respond to a hub's price relative to its parity point: above parity, imports accelerate and the importing region's stocks rise (the exporter's fall); below parity they slow"),
+    diffPerStock: est(0.25, "$/bbl per % stock gap", "model design; scaled to the calibrated US crack-stock slopes", "a hub's differential rises when its region is shorter than its supply region"),
+    regionWeight: est({ US: 0.4, EU: 0.3, ASIA: 0.2, ME: 0.05, WAF: 0.05 }, "weight", "rough shares of traded product inventories", "regional stocks combine into the global signal that drives curve structure") as Param<Record<RegionId, number>>,
   },
   storage: {
     baseFee: {
@@ -186,6 +203,9 @@ export interface ScriptedEvent {
   tce?: [VesselClass, number, number][];
   diff?: [HubId, ProductId, number, number][];
   stocks?: [ProductId, number, number][];
+  /** regional stock flows: [region, product, total % over the episode, half-life days] (amount is converted to a decaying daily flow) */
+  regionStocks?: [RegionId, ProductId, number, number][];
+  util?: [RegionId, number, number][];
 }
 
 export interface Scenario {
@@ -196,8 +216,10 @@ export interface Scenario {
   startDate: string;
   weeks: number;
   regime: Regime;
-  /** US stocks vs 5-year seasonal average, % (drives curve structure) */
+  /** US stocks vs 5-year seasonal average, % */
   stocks: Record<ProductId, Param>;
+  /** other regions' starting stocks, % (default 0) */
+  regionStocks?: Partial<Record<RegionId, Partial<Record<ProductId, Param>>>>;
   /** days simulated before the start, so charts have history and the state is consistent */
   burnInDays: number;
   /** generated worlds show years as "Year 1, 2…" relative to this calendar year */
@@ -262,6 +284,10 @@ export const SCENARIOS: Record<string, Scenario> = {
       gasoline: snapN.us_gasoline_stocks_vs_5y_pct!,
       diesel: snapN.us_distillate_stocks_vs_5y_pct!,
       jet: est(4.7, "%", "EIA WPSR WKJSTUS1, week to 23 Oct 2026 (computed in calibration)"),
+    },
+    regionStocks: {
+      EU: { diesel: est(-8, "%", "European diesel described as structurally short in Oct 2026 reporting; magnitude assumed"), jet: est(-4, "%", "assumed") },
+      ME: { diesel: est(6, "%", "Gulf barrels backed up behind Hormuz; magnitude assumed"), jet: est(6, "%", "assumed") },
     },
     name: "Now — November 2026 (war regime)",
     description:

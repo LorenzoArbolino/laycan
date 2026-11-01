@@ -9,7 +9,7 @@ import type { Rng } from "../core/rng";
 import { PRODUCTS, type ProductId } from "../core/units";
 import type { MarketConfig, MarketState, MarketStepNews } from "../market/market";
 import { MODEL } from "../params/model";
-import { CHOKEPOINT_INFO, HUB_INFO, type HubId } from "../world/world";
+import { CHOKEPOINT_INFO, HUB_INFO, HUB_REGION, REGIONS, type HubId, type RegionId } from "../world/world";
 
 export interface NewsItem {
   day: number;
@@ -50,6 +50,16 @@ function crackShock(ctx: MacroContext, p: ProductId, jump: number, shift: number
 function diffShock(ctx: MacroContext, hub: HubId, p: ProductId, jump: number, shift: number, hl: number) {
   ctx.m.diffs[hub][p] += jump;
   addEffect(ctx, { kind: "diff", hub, product: p }, shift, hl);
+}
+
+function utilShock(ctx: MacroContext, region: RegionId, pp: number, hl: number) {
+  addEffect(ctx, { kind: "util", region }, pp, hl);
+  ctx.m.util[region] += pp * 0.6;
+}
+
+/** A decaying flow into (+) or out of (−) a region's stocks; total ≈ pct, spread over the half-life. */
+function stockShock(ctx: MacroContext, region: RegionId, p: ProductId, pct: number, hl: number) {
+  addEffect(ctx, { kind: "stocks", product: p, region }, (pct * 0.6931471805599453) / hl, hl);
 }
 
 function news(ctx: MacroContext, severity: NewsItem["severity"], title: string, body: string) {
@@ -100,9 +110,10 @@ export function fireEvent(ctx: MacroContext, kind: MacroEventKind, variant?: str
   switch (kind) {
     case "hurricane": {
       const g = heavy(rng, 4, 12);
-      crackShock(ctx, "gasoline", g, g * 0.7, 14);
-      crackShock(ctx, "diesel", g * 0.6, g * 0.4, 14);
-      crackShock(ctx, "jet", g * 0.6, g * 0.4, 14);
+      crackShock(ctx, "gasoline", g, g * 0.3, 14);
+      crackShock(ctx, "diesel", g * 0.6, g * 0.2, 14);
+      crackShock(ctx, "jet", g * 0.6, g * 0.2, 14);
+      utilShock(ctx, "US", -heavy(rng, 6, 16), 8);
       for (const p of PRODUCTS) diffShock(ctx, "NYH", p, between(rng, 1, 4), 2, 14);
       const extra = 2 + rng.int(4);
       ctx.ports.push({ hub: "USGC", untilDay: m.day + extra + 2, extraDays: extra });
@@ -113,20 +124,23 @@ export function fireEvent(ctx: MacroContext, kind: MacroEventKind, variant?: str
       const hub = (variant as HubId | undefined) ?? rng.pick<HubId>(["USGC", "ARA", "SIN", "MEG", "WAF", "NYH"]);
       const p = rng.pick(PRODUCTS);
       const size = heavy(rng, 1.5, 5);
-      if (hub === "USGC") crackShock(ctx, p, size, size * 0.6, 20);
-      else diffShock(ctx, hub, p, size, size * 0.7, 20);
+      if (hub === "USGC") crackShock(ctx, p, size, size * 0.3, 20);
+      else diffShock(ctx, hub, p, size, size * 0.3, 20);
+      utilShock(ctx, HUB_REGION[hub], -between(rng, 1.5, 4), 15);
       news(ctx, "warn", `Unplanned refinery outage: ${HUB_INFO[hub].name}`, `Local ${p} supply short: ${hub} ${p} ${fmt(size)} $/bbl.`);
       return;
     }
     case "refineryAttack": {
       if (variant === "russia" || (variant === undefined && rng.bernoulli(0.6))) {
         const s = heavy(rng, 1.5, 4.5);
-        diffShock(ctx, "ARA", "diesel", s, s, 25);
-        crackShock(ctx, "diesel", s * 0.5, s * 0.4, 25);
+        diffShock(ctx, "ARA", "diesel", s, s * 0.4, 25);
+        crackShock(ctx, "diesel", s * 0.5, s * 0.2, 25);
+        stockShock(ctx, "EU", "diesel", -s, 40);
         news(ctx, "warn", "Drone strikes on Russian refineries and ports", `Russian diesel exports cut; Europe pays up: ARA diesel ${fmt(s)} $/bbl.`);
       } else {
         const s = heavy(rng, 2, 6);
-        for (const p of ["diesel", "jet"] as const) diffShock(ctx, "MEG", p, s, s * 0.6, 20);
+        for (const p of ["diesel", "jet"] as const) diffShock(ctx, "MEG", p, s, s * 0.3, 20);
+        utilShock(ctx, "ME", -between(rng, 3, 8), 20);
         m.brent *= 1 + between(rng, 0.01, 0.04);
         news(ctx, "warn", "Attack on Saudi energy facilities", `Gulf refinery and terminal damage: MEG diesel/jet ${fmt(s)} $/bbl, Brent firmer.`);
       }
@@ -135,12 +149,16 @@ export function fireEvent(ctx: MacroContext, kind: MacroEventKind, variant?: str
     case "exportBan": {
       if (variant === "russia" || (variant === undefined && rng.bernoulli(0.55))) {
         const s = heavy(rng, 2, 5);
-        diffShock(ctx, "ARA", "diesel", s * 0.6, s, 35);
+        diffShock(ctx, "ARA", "diesel", s * 0.6, s * 0.4, 35);
+        stockShock(ctx, "EU", "diesel", -2 * s, 45);
         crackShock(ctx, "gasoline", -s * 0.3, -s * 0.2, 30);
         news(ctx, "warn", "Russia extends product export bans", `Diesel export restrictions for producers extended. Europe's diesel premium widens (${fmt(s)} $/bbl over the coming weeks).`);
       } else {
         const s = heavy(rng, 1.5, 4.5);
-        for (const p of ["diesel", "jet"] as const) diffShock(ctx, "SIN", p, s * 0.5, s, 30);
+        for (const p of ["diesel", "jet"] as const) {
+          diffShock(ctx, "SIN", p, s * 0.5, s * 0.4, 30);
+          stockShock(ctx, "ASIA", p, -s, 40);
+        }
         news(ctx, "warn", "China cuts product export quotas", `Fewer Chinese diesel and jet cargoes for Asia: Singapore ${fmt(s)} $/bbl.`);
       }
       return;
@@ -154,8 +172,9 @@ export function fireEvent(ctx: MacroContext, kind: MacroEventKind, variant?: str
     }
     case "gasSwitching": {
       const s = heavy(rng, 2, 6);
-      crackShock(ctx, "diesel", s * 0.5, s, 20);
-      diffShock(ctx, "ARA", "diesel", 1, 1.5, 20);
+      crackShock(ctx, "diesel", s * 0.5, s * 0.5, 20);
+      diffShock(ctx, "ARA", "diesel", 1, 0.5, 20);
+      stockShock(ctx, "EU", "diesel", -s, 30);
       news(ctx, "warn", "Cold snap: gas-to-oil switching", `Low gas storage pushes power and industry to burn distillates. Diesel crack ${fmt(s)} $/bbl over the coming weeks.`);
       return;
     }
@@ -164,7 +183,8 @@ export function fireEvent(ctx: MacroContext, kind: MacroEventKind, variant?: str
       if (k === "demand") {
         const j = heavy(rng, 0.12, 0.25);
         m.brent *= 1 - j;
-        for (const p of PRODUCTS) crackShock(ctx, p, -heavy(rng, 4, 10), -6, 40);
+        for (const p of PRODUCTS) crackShock(ctx, p, -heavy(rng, 4, 10), -4, 40);
+        for (const reg of REGIONS) for (const p of PRODUCTS) stockShock(ctx, reg, p, between(rng, 5, 12), 60);
         m.regime = "stressed";
         news(ctx, "critical", "Black swan: demand collapse", `A sudden macro shock crushes demand. Brent −${(j * 100).toFixed(0)}%, cracks slump, curves flip towards contango.`);
       } else if (k === "supply") {

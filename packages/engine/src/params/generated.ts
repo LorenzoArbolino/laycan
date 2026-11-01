@@ -46,6 +46,11 @@ export function makeGeneratedScenario(seed: string): Scenario {
   const stocks = {} as Record<ProductId, Param>;
   for (const p of PRODUCTS) stocks[p] = gen(5 * r.normal() + (regime === "war" ? -5 : regime === "stressed" ? 5 : 0), "%", "drawn around the regime's typical inventory position");
 
+  const regionStocks: Scenario["regionStocks"] = {};
+  for (const reg of ["EU", "WAF", "ME", "ASIA"] as const) {
+    regionStocks[reg] = {};
+    for (const p of PRODUCTS) regionStocks[reg]![p] = gen(4 * r.normal(), "%", "drawn around normal inventories");
+  }
   const choke: Scenario["choke"] = { hormuz: "open", babelmandeb: "open", suez: "open" };
   if (regime === "war") {
     if (r.bernoulli(0.6)) choke.hormuz = "restricted";
@@ -68,6 +73,7 @@ export function makeGeneratedScenario(seed: string): Scenario {
     weeks: 12,
     regime,
     stocks,
+    regionStocks,
     burnInDays,
     displayYearBase: GEN_YEAR,
     randomEvents: true,

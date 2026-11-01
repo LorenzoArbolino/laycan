@@ -9,6 +9,12 @@ import type { ProductId } from "../core/units";
 export type HubId = "USGC" | "NYH" | "ARA" | "WAF" | "MEG" | "FUJ" | "SIN";
 export const HUBS: readonly HubId[] = ["USGC", "NYH", "ARA", "WAF", "MEG", "FUJ", "SIN"];
 
+/** Balance regions for the fundamentals layer. */
+export type RegionId = "US" | "EU" | "WAF" | "ME" | "ASIA";
+export const REGIONS: readonly RegionId[] = ["US", "EU", "WAF", "ME", "ASIA"];
+export const REGION_NAME: Record<RegionId, string> = { US: "United States", EU: "Northwest Europe", WAF: "West Africa", ME: "Middle East", ASIA: "Asia" };
+export const HUB_REGION: Record<HubId, RegionId> = { USGC: "US", NYH: "US", ARA: "EU", WAF: "WAF", MEG: "ME", FUJ: "ME", SIN: "ASIA" };
+
 export interface Hub {
   id: HubId;
   name: string;

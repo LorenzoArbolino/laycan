@@ -11,7 +11,7 @@ function carryTrade(structure: number) {
   // hold the curve at the chosen shape for the test
   g.market.structure.diesel = structure;
   g.market.effects.push({ id: "test", target: { kind: "structure", key: "diesel" }, amount: structure - MODEL.structure.mean.normal.diesel.value, halfLifeDays: 1e6, startDay: g.day });
-  g.market.stocks.diesel = 0;
+  for (const r of Object.keys(g.market.stocks) as (keyof typeof g.market.stocks)[]) g.market.stocks[r].diesel = 0;
   g.act({ type: "lease", hub: "ARA", capacityBbl: 300_000, months: 3 });
   g.book.cargoes.push({ id: "C0", product: "diesel", qty: 298_000, hub: "ARA", where: "tank", qualityDiscount: 0, sinceDay: g.day });
   g.state.lastEquity = g.equity();
@@ -63,8 +63,7 @@ describe("storage", () => {
     const run = (stocks: number) => {
       const g = Game.create({ scenario: "normal_2025", seed: "stocks" });
       g.cfg.freezeRegime = true;
-      g.market.effects.push({ id: "s", target: { kind: "stocks", product: "diesel" }, amount: stocks, halfLifeDays: 1e6, startDay: g.day });
-      g.market.stocks.diesel = stocks;
+      for (const region of ["US", "EU", "WAF", "ME", "ASIA"] as const) g.market.stocks[region].diesel = stocks;
       for (let i = 0; i < 120; i++) g.stepDay();
       return g.market.structure.diesel;
     };

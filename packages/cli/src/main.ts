@@ -19,6 +19,8 @@ import {
   ROUTES,
   SCENARIOS,
   EPISODES,
+  ROSTER,
+  REGIONS,
   assumptionsMarkdown,
   hubPrice,
   isoDate,
@@ -110,6 +112,10 @@ Commands
   lease <hub> [kbbl] [months]    lease tank capacity (take-or-pay)
   spot <cargoId>                 sell a tank parcel to a merchant now (index − haircut)
   carry                          cash-and-carry economics by hub
+  stocks                         regional stocks and refinery runs vs normal
+  counter <offerId> <premium>    negotiate: propose a premium vs the index
+  tenders / bid <id> <premium>   open tenders; submit a sealed bid
+  cpty                           counterparties, ratings and relationships
   divert <voyageId> [hub]        list diversion options, or divert a laden ship to another hub
   blend <hub> [kbbl]             show the optimal gasoline blend, or blend into your leased tank
   --weeks <n>                    game length for generated markets (default 12)
@@ -215,6 +221,26 @@ async function handle(g: Game, c: string, a: string[]): Promise<void> {
       console.log(g.act({ type: "blend", hub, volumeBbl: Number(a[1]) * 1000 }).message);
       return;
     }
+    case "counter":
+      console.log(g.act({ type: "counter", offerId: a[0]!, diff: Number(a[1]) }).message);
+      return;
+    case "tenders":
+      for (const t of g.state.tenders.filter((x) => x.status === "open"))
+        console.log(`  ${t.id} ${t.cptyName} ${t.playerSide === "sell" ? "buys" : "sells"} ${(t.qtyBbl / 1000).toFixed(0)} kbbl ${t.product} ${t.incoterm} ${t.hub}, closes ${isoDate(t.closeDay)}${t.bid !== undefined ? `, your bid ${t.bid}` : ""}`);
+      return;
+    case "bid":
+      console.log(g.act({ type: "tenderBid", tenderId: a[0]!, diff: Number(a[1]) }).message);
+      return;
+    case "cpty":
+      for (const c of ROSTER) {
+        const r = g.state.relations[c.id]!;
+        console.log(`  ${c.name.padEnd(26)} ${c.rating.padEnd(4)} ${c.kind.padEnd(8)} relationship ${r.score.toFixed(2).padStart(5)}  deals ${r.deals} fails ${r.fails}`);
+      }
+      return;
+    case "stocks":
+      console.log("  region   runs pp   gasoline %   diesel %   jet %");
+      for (const r of REGIONS) console.log(`  ${r.padEnd(6)} ${g.market.util[r].toFixed(1).padStart(8)} ${g.market.stocks[r].gasoline.toFixed(1).padStart(12)} ${g.market.stocks[r].diesel.toFixed(1).padStart(10)} ${g.market.stocks[r].jet.toFixed(1).padStart(7)}`);
+      return;
     case "carry":
       for (const h of ["ARA", "USGC", "SIN", "FUJ"] as const)
         for (const p of ["diesel", "gasoline"] as const) {

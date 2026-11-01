@@ -1,19 +1,23 @@
 import { useState } from "react";
-import { CHOKEPOINT_INFO, FUTURES, FUTURES_IDS, HUB_INFO, HUBS, PRODUCTS, ROUTES, hubPrice, isoDate, listedMonths, perBbl, rowPrice, type Game } from "@laycan/engine";
+import { CHOKEPOINT_INFO, FUTURES, FUTURES_IDS, HUB_INFO, HUBS, PRODUCTS, REGIONS, REGION_NAME, ROUTES, hubPrice, isoDate, listedMonths, perBbl, rowPrice, type Game } from "@laycan/engine";
 import { LineChart } from "./LineChart";
 import { shortDate } from "../format";
 
+/** green = long (surplus), red = short */
+const tight = (x: number) => (x <= -3 ? "neg" : x >= 3 ? "pos" : "");
+const g_kind = (game: Game) => (game.scenario.kind === "historical" ? " In replays, US stocks and runs are the real EIA weekly data." : "");
+
 export function MarketPanel({ game }: { game: Game }) {
   const m = game.market;
-  const [tab, setTab] = useState<"prices" | "freight" | "curves">("prices");
+  const [tab, setTab] = useState<"prices" | "fundamentals" | "freight" | "curves">("prices");
   const hist = game.state.history;
   const labels = hist.map((r) => shortDate(isoDate(r.day)));
   return (
     <section className="panel" aria-label="Market">
       <div className="tabs" role="tablist">
-        {(["prices", "freight", "curves"] as const).map((t) => (
-          <button key={t} role="tab" aria-selected={tab === t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
-            {t === "prices" ? "Hub prices" : t === "freight" ? "Freight" : "Futures curves"}
+        {(["prices", "fundamentals", "freight", "curves"] as const).map((t) => (
+          <button key={t} role="tab" aria-selected={tab === t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)} data-testid={`market-${t}`}>
+            {t === "prices" ? "Prices" : t === "fundamentals" ? "Stocks" : t === "freight" ? "Freight" : "Curves"}
           </button>
         ))}
       </div>
@@ -64,6 +68,59 @@ export function MarketPanel({ game }: { game: Game }) {
             series={[
               { name: "Brent $/bbl", color: "#15202b", values: hist.map((r) => r.brent) },
               { name: "ARA−USGC diesel ×5", color: "#137a4a", values: hist.map((r) => 5 * (rowPrice(r, "ARA", "diesel") - rowPrice(r, "USGC", "diesel"))) },
+            ]}
+          />
+        </>
+      )}
+      {tab === "fundamentals" && (
+        <>
+          <p className="hint">
+            Inventories and refinery runs against their 5-year seasonal normal. Low stocks lift cracks and a region's premium, steepen backwardation and pull in cargoes; outages cut refinery runs and drain stocks
+            over weeks.{g_kind(game)}
+          </p>
+          <div className="table-wrap">
+            <table aria-label="Regional fundamentals">
+              <thead>
+                <tr>
+                  <th>vs normal</th>
+                  <th>Runs, pp</th>
+                  {PRODUCTS.map((p) => (
+                    <th key={p}>{p} %</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {REGIONS.map((r) => (
+                  <tr key={r}>
+                    <td title={REGION_NAME[r]}>
+                      <b>{r}</b>
+                    </td>
+                    <td className={`num ${tight(m.util[r] * 2)}`}>{(m.util[r] >= 0 ? "+" : "") + m.util[r].toFixed(1)}</td>
+                    {PRODUCTS.map((p) => (
+                      <td key={p} className={`num ${tight(m.stocks[r][p])}`}>
+                        {(m.stocks[r][p] >= 0 ? "+" : "") + m.stocks[r][p].toFixed(1)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <h2 style={{ marginTop: 10 }}>US stocks vs normal (%) and refinery runs (pp)</h2>
+          <LineChart
+            labels={labels}
+            series={[
+              { name: "Diesel", color: "#155e75", values: hist.map((r) => r.stocks?.US?.diesel ?? 0) },
+              { name: "Gasoline", color: "#c2410c", values: hist.map((r) => r.stocks?.US?.gasoline ?? 0) },
+              { name: "Runs", color: "#7b8794", values: hist.map((r) => r.util?.US ?? 0) },
+            ]}
+          />
+          <h2 style={{ marginTop: 10 }}>Europe and Asia diesel stocks (%)</h2>
+          <LineChart
+            labels={labels}
+            series={[
+              { name: "Europe", color: "#6d4bb5", values: hist.map((r) => r.stocks?.EU?.diesel ?? 0) },
+              { name: "Asia", color: "#137a4a", values: hist.map((r) => r.stocks?.ASIA?.diesel ?? 0) },
             ]}
           />
         </>

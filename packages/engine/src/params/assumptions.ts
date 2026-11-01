@@ -7,6 +7,7 @@ import { CHOKEPOINT_INFO, VESSELS } from "../world/world";
 import { MODEL, SCENARIOS } from "./model";
 import { BLEND_FEE, COMPONENT_DATA, COMPONENT_PRICE_NOTE, OFFSPEC_NOTE } from "../blending/blend";
 import { DIVERSION } from "../game";
+import { CREDIT, STOCK_SPREAD, TENDER_NOTE } from "../agents/counterparties";
 import { collectParams, type Param } from "./param";
 
 export interface AssumptionRow {
@@ -39,6 +40,7 @@ export function assumptionRows(): AssumptionRow[] {
     ["Chokepoints", CHOKEPOINT_INFO],
     ["Blending", { components: COMPONENT_DATA, componentPrices: COMPONENT_PRICE_NOTE, fee: BLEND_FEE, offSpec: OFFSPEC_NOTE }],
     ["Diversions", DIVERSION],
+    ["Counterparties", { creditDefaultByRating: CREDIT, stockSpread: STOCK_SPREAD, tenders: TENDER_NOTE }],
     ...Object.values(SCENARIOS).map((s) => [`Regime preset: ${s.id}`, s] as [string, unknown]),
   ];
   const rows: AssumptionRow[] = [];

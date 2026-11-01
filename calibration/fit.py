@@ -360,6 +360,66 @@ def main() -> None:
     except FileNotFoundError:
         pass
 
+    # ---------- Fundamentals: US refinery utilisation and stocks (EIA WPSR) ----------
+    try:
+        def five_year_dev(series: pd.Series, pct: bool) -> pd.Series:
+            wk = series.index.isocalendar().week.astype(int).values
+            out = []
+            for i, (d, v) in enumerate(series.items()):
+                h = series[(series.index.year >= d.year - 5) & (series.index.year < d.year)]
+                hw = h.index.isocalendar().week.astype(int).values
+                m = h[np.abs(hw - wk[i]) <= 1].mean()
+                out.append(((v / m - 1) * 100 if pct else v - m) if m == m else np.nan)
+            return pd.Series(out, index=series.index).dropna()
+
+        load = lambda sid: pd.read_csv(RAW / "eia" / f"{sid}.csv", parse_dates=["date"]).set_index("date")["value"].astype(float)
+        ud = five_year_dev(load("WPULEUS3"), pct=False)
+        x = ud.values
+        bu = float(np.polyfit(x[:-1], x[1:], 1)[0])
+        ru = x[1:] - bu * x[:-1]
+        src_wpsr = "EIA Weekly Petroleum Status Report (WPULEUS3, WDISTUS1, WGTSTUS1, WKJSTUS1), deviations from the 5-year same-week mean"
+        fund = {
+            "util_kappa": P(-np.log(bu) / 5, "1/business day", "derived", src_wpsr, "AR(1) on weekly US utilisation deviation, converted to business days"),
+            "util_sigma": P(float(ru.std()) / np.sqrt(5), "pp/business day", "derived", src_wpsr, "weekly AR(1) residual sd / sqrt(5)"),
+            "util_sd": P(float(ud.std()), "pp", "derived", src_wpsr, "sd of US utilisation deviation"),
+            "util_min": P(float(ud.min()), "pp", "data", src_wpsr, f"largest shortfall ({ud.idxmin().date()}, Winter Storm Uri)"),
+        }
+        names = {"diesel": "WDISTUS1", "gasoline": "WGTSTUS1", "jet": "WKJSTUS1"}
+        for p, sid in names.items():
+            sd = five_year_dev(load(sid), pct=True)
+            df = pd.concat({"s": sd, "u": ud}, axis=1).dropna()
+            ds = df["s"].diff().shift(-1)
+            d2 = pd.concat({"ds": ds, "u": df["u"], "s": df["s"]}, axis=1).dropna()
+            X = np.column_stack([d2["u"], d2["s"], np.ones(len(d2))])
+            coef, *_ = np.linalg.lstsq(X, d2["ds"], rcond=None)
+            resid = d2["ds"] - X @ coef
+            cw = cracks[p].resample("W-FRI").mean()
+            j = pd.concat({"c": cw, "s": sd.resample("W-FRI").last()}, axis=1).dropna()
+            norm = j[((j.index.year >= 2010) & (j.index.year <= 2019)) | ((j.index.year >= 2023) & (j.index.year <= 2025))]
+            g = float(np.polyfit(norm["s"], norm["c"], 1)[0])
+            fund[p] = {
+                "stock_kappa": P(max(0.004, -float(coef[1]) / 5), "1/business day", "derived", src_wpsr, "weekly regression of stock-deviation change on its level, converted (floored at 0.004)"),
+                "stock_sigma": P(float(resid.std()) / np.sqrt(5), "%/business day", "derived", src_wpsr, "weekly residual sd / sqrt(5)"),
+                "util_to_stock_ols": P(float(coef[0]) / 5, "%/business day per pp", "derived", src_wpsr, "OLS of weekly stock change on utilisation deviation (attenuated by imports, demand and reporting noise; not used)"),
+                "crack_per_stock": P(g, "$/bbl per %", "derived", src_wpsr + "; EIA spot via FRED", "OLS of weekly mean USGC crack on stock deviation, normal-regime years 2010-2019 and 2023-2025"),
+            }
+        # Refit the normal-regime crack process net of the stock channel, so that the engine's
+        # crack = OU(residual) + slope × stocks reproduces the historical crack dynamics.
+        for p in ["gasoline", "diesel", "jet"]:
+            sd = five_year_dev(load(names[p]), pct=True)
+            sdd = sd.reindex(cracks.index, method="ffill")
+            g = fund[p]["crack_per_stock"]["value"]
+            ex = (cracks[p] - g * sdd)[(reg == "normal") & sdd.notna()]
+            kappa, mu, resid = ar1(ex)
+            rs = robust_sigma(resid)
+            jm = np.abs(resid) > 4.5 * rs
+            fund[p]["ex_stock_kappa"] = P(float(np.clip(kappa, 0.004, 0.2)), "1/day", "derived", src_wpsr + "; EIA spot via FRED", "AR(1) on the normal-regime crack minus slope × stock deviation")
+            fund[p]["ex_stock_sigma"] = P(float(np.std(resid[~jm])), "$/bbl/day", "derived", src_wpsr + "; EIA spot via FRED", "sd of non-jump residuals of that AR(1)")
+        params["fundamentals"] = fund
+        report["fundamentals"] = {k: (v["value"] if "value" in v else {kk: vv["value"] for kk, vv in v.items()}) for k, v in fund.items()}
+    except FileNotFoundError:
+        pass
+
     # ---------- Hurricanes: Gulf of Mexico hurricane-days by month (HURDAT2) ----------
     try:
         months = np.zeros(12)

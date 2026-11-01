@@ -5,6 +5,7 @@ import { OffersPanel } from "./components/OffersPanel";
 import { BookPanel } from "./components/BookPanel";
 import { PnlPanel } from "./components/PnlPanel";
 import { WorldMap } from "./components/WorldMap";
+import { CounterpartiesPanel } from "./components/Counterparties";
 import { cls, money } from "./format";
 
 const SAVE_KEY = "laycan-save-v1";
@@ -190,7 +191,7 @@ export function App() {
   const gameRef = useRef<Game | null>(null);
   const [saved] = useState<Game | null>(() => load());
   const [, setVersion] = useState(0);
-  const [tab, setTab] = useState<"offers" | "book">("offers");
+  const [tab, setTab] = useState<"offers" | "book" | "cpty">("offers");
   const [hub, setHub] = useState<HubId | null>(null);
   const [toast, setToast] = useState<{ text: string; err: boolean } | null>(null);
   const [showAssumptions, setShowAssumptions] = useState(false);
@@ -216,6 +217,7 @@ export function App() {
     const r = gameRef.current.act(a);
     setToast({ text: r.message, err: !r.ok });
     if (r.ok && a.type === "accept") setTab("book");
+    if (a.type === "counter" || a.type === "tenderBid") setTab("offers");
     save(gameRef.current);
     refresh();
   };
@@ -319,8 +321,11 @@ export function App() {
               <button role="tab" aria-selected={tab === "book"} className={`tab ${tab === "book" ? "active" : ""}`} onClick={() => setTab("book")} data-testid="tab-book">
                 Book, storage &amp; hedges <span className="count">{g.openPositions().deals.length + g.openPositions().voyages.length + g.book.futures.length}</span>
               </button>
+              <button role="tab" aria-selected={tab === "cpty"} className={`tab ${tab === "cpty" ? "active" : ""}`} onClick={() => setTab("cpty")} data-testid="tab-cpty">
+                Counterparties
+              </button>
             </div>
-            {tab === "offers" ? <OffersPanel game={g} act={act} hub={hub} clearHub={() => setHub(null)} /> : <BookPanel game={g} act={act} />}
+            {tab === "offers" ? <OffersPanel game={g} act={act} hub={hub} clearHub={() => setHub(null)} /> : tab === "book" ? <BookPanel game={g} act={act} /> : <CounterpartiesPanel game={g} />}
           </section>
         </div>
         <div className="col">

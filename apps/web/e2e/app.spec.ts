@@ -88,3 +88,15 @@ test("blending and diversion from the book", async ({ page }) => {
   await expect(page.getByText(/diverted to/).first()).toBeVisible();
   await page.screenshot({ path: "test-results/ops.png", fullPage: true });
 });
+
+test("negotiation, counterparties and fundamentals views", async ({ page }) => {
+  await page.goto("/?seed=e2e-5");
+  await page.getByTestId("start").click();
+  const counter = page.locator('[data-testid^="counter-"]').first();
+  await counter.click();
+  await expect(page.locator(".toast")).toContainText(/agrees|comes back|walks away/);
+  await page.getByTestId("tab-cpty").click();
+  await expect(page.getByRole("table", { name: "Counterparties" })).toContainText("Meridian Energy");
+  await page.getByTestId("market-fundamentals").click();
+  await expect(page.getByRole("table", { name: "Regional fundamentals" })).toContainText("EU");
+});

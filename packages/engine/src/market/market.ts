@@ -24,7 +24,10 @@ import { parseDate } from "../core/calendar";
 import {
   CHOKEPOINTS,
   HUBS,
+  HUB_REGION,
   PRICE_GRAPH,
+  REGIONS,
+  type RegionId,
   type ChokeState,
   type ChokepointId,
   type HubId,
@@ -41,7 +44,8 @@ export type EffectTarget =
   | { kind: "diff"; hub: HubId; product: ProductId }
   | { kind: "tce"; cls: VesselClass }
   | { kind: "structure"; key: StructKey }
-  | { kind: "stocks"; product: ProductId };
+  | { kind: "stocks"; product: ProductId; region?: RegionId }
+  | { kind: "util"; region: RegionId };
 
 /** A decaying shift to a long-run mean, caused by an event. */
 export interface Effect {
@@ -61,8 +65,10 @@ export interface MarketState {
   diffs: Record<HubId, Record<ProductId, number>>;
   tce: Record<VesselClass, number>;
   structure: Record<StructKey, number>;
-  /** inventories vs 5-year seasonal average, % (positive = surplus) */
-  stocks: Record<ProductId, number>;
+  /** inventories by region vs 5-year seasonal average, % (positive = surplus) */
+  stocks: Record<RegionId, Record<ProductId, number>>;
+  /** refinery utilisation by region vs 5-year seasonal average, percentage points */
+  util: Record<RegionId, number>;
   choke: Record<ChokepointId, ChokeState>;
   effects: Effect[];
 }
@@ -138,6 +144,20 @@ export function effectShift(m: MarketState, match: (t: EffectTarget) => boolean)
 
 const diffShift = (m: MarketState, hub: HubId, p: ProductId) => effectShift(m, (t) => t.kind === "diff" && t.hub === hub && t.product === p);
 
+/** A hub trades higher when its region's stocks are lower than its supply region's. */
+export function stockGapPremium(m: MarketState, hub: HubId, anchor: HubId, p: ProductId): number {
+  const a = HUB_REGION[hub];
+  const b = HUB_REGION[anchor];
+  if (a === b) return 0;
+  return -MODEL.fundamentals.diffPerStock.value * (m.stocks[a][p] - m.stocks[b][p]);
+}
+
+/** Global inventory signal for a product: regional stocks weighted by size. */
+export function globalStock(m: MarketState, p: ProductId): number {
+  const w = MODEL.fundamentals.regionWeight.value;
+  return REGIONS.reduce((s, r) => s + w[r] * m.stocks[r][p], 0);
+}
+
 /** Parity target and arb bound for one hub differential, given the current anchor diff. */
 export function parity(m: MarketState, cfg: MarketConfig, hub: HubId, p: ProductId) {
   const a = PRICE_GRAPH.find((x) => x.hub === hub && x.product === p);
@@ -147,14 +167,15 @@ export function parity(m: MarketState, cfg: MarketConfig, hub: HubId, p: Product
   const R = MODEL.regional;
   if (a.route === null) {
     const mean = hub === "NYH" ? cfg.nyhMean[m.regime][p] : 0;
-    return { anchor: a, target: anchorDiff + mean + diffShift(m, hub, p), bound: null as number | null, freight: 0, feasible: true };
+    return { anchor: a, target: anchorDiff + mean + diffShift(m, hub, p) + stockGapPremium(m, hub, a.anchor, p), bound: null as number | null, freight: 0, feasible: true, arbPoint: anchorDiff + mean };
   }
   const q = bestQuote(a.route, freightInputs(m, cfg));
   const F = perBbl(q, p) + R.friction.value;
   const stranded = q.feasible ? 0 : R.strandedPremium.value;
-  const target = anchorDiff + sign * (R.theta.value * F + stranded) + diffShift(m, hub, p);
+  const target = anchorDiff + sign * (R.theta.value * F + stranded) + diffShift(m, hub, p) + stockGapPremium(m, hub, a.anchor, p);
   const bound = q.feasible ? anchorDiff + sign * F : null;
-  return { anchor: a, target, bound, freight: F, feasible: q.feasible };
+  // arbPoint: pure freight parity, without stock or event premia (drives trade flows)
+  return { anchor: a, target, bound, freight: F, feasible: q.feasible, arbPoint: anchorDiff + sign * R.theta.value * F };
 }
 
 export function initMarket(scenario: Scenario, cfg: MarketConfig, startDay: number): MarketState {
@@ -168,7 +189,15 @@ export function initMarket(scenario: Scenario, cfg: MarketConfig, startDay: numb
     diffs: emptyHubTable(),
     tce: { MR: scenario.freight.MR.value, LR1: scenario.freight.LR1.value, LR2: scenario.freight.LR2.value },
     structure: { brent: scenario.structure.brent.value, gasoline: scenario.structure.gasoline.value, diesel: scenario.structure.diesel.value, jet: scenario.structure.jet.value },
-    stocks: { gasoline: scenario.stocks.gasoline.value, diesel: scenario.stocks.diesel.value, jet: scenario.stocks.jet.value },
+    stocks: Object.fromEntries(
+      REGIONS.map((r) => [
+        r,
+        r === "US"
+          ? { gasoline: scenario.stocks.gasoline.value, diesel: scenario.stocks.diesel.value, jet: scenario.stocks.jet.value }
+          : { gasoline: scenario.regionStocks?.[r]?.gasoline?.value ?? 0, diesel: scenario.regionStocks?.[r]?.diesel?.value ?? 0, jet: scenario.regionStocks?.[r]?.jet?.value ?? 0 },
+      ]),
+    ) as MarketState["stocks"],
+    util: { US: 0, EU: 0, WAF: 0, ME: 0, ASIA: 0 },
     choke: { ...scenario.choke },
     effects: [],
   };
@@ -297,7 +326,7 @@ export function stepMarket(m: MarketState, cfg: MarketConfig, rng: Rng): MarketS
   const common = jumpDay ? rng.laplace(1) : 0;
   PRODUCTS.forEach((p, i) => {
     const cp = MODEL.cracks[p].byRegime[r];
-    const mu = cfg.crackMean[r][p] + season(p, m.day) + effectShift(m, (t) => t.kind === "crack" && t.product === p);
+    const mu = cfg.crackMean[r][p] + season(p, m.day) + MODEL.fundamentals.crackPerStock[p].value * m.stocks.US[p] + effectShift(m, (t) => t.kind === "crack" && t.product === p);
     let x = m.cracks[p];
     x += cp.kappa.value * (mu - x) + cp.sigma.value * sw * (z[i + 1] ?? 0);
     if (jumpDay) x += 0.8 * common * cp.jumpScale.value + rng.laplace(0.2 * cp.jumpScale.value);
@@ -305,17 +334,6 @@ export function stepMarket(m: MarketState, cfg: MarketConfig, rng: Rng): MarketS
   });
   if (row) m.cracks = { gasoline: row.g, diesel: row.d, jet: row.j };
 
-  // Inventories (vs 5-year average): OU around zero plus event shifts; data in replays
-  const ST = MODEL.stocks;
-  for (const p of PRODUCTS) {
-    const target = effectShift(m, (t) => t.kind === "stocks" && t.product === p);
-    m.stocks[p] += ST.kappa.value * (target - m.stocks[p]) + ST.sigma.value * rng.normal();
-  }
-  if (row) {
-    if (row.sg !== null) m.stocks.gasoline = row.sg;
-    if (row.sd !== null) m.stocks.diesel = row.sd;
-    if (row.sj !== null) m.stocks.jet = row.sj;
-  }
 
   // Freight (log TCE per class)
   const F = MODEL.freight;
@@ -336,13 +354,14 @@ export function stepMarket(m: MarketState, cfg: MarketConfig, rng: Rng): MarketS
   // Curve structure
   const S = MODEL.structure;
   for (const k of STRUCT_KEYS) {
-    const stock = k === "brent" ? (m.stocks.gasoline + m.stocks.diesel + m.stocks.jet) / 3 : m.stocks[k];
+    const stock = k === "brent" ? PRODUCTS.reduce((acc, p) => acc + globalStock(m, p), 0) / 3 : globalStock(m, k);
     const mu = S.mean[r][k].value - MODEL.stocks.structureSlope.value * stock + effectShift(m, (t) => t.kind === "structure" && t.key === k);
     m.structure[k] += S.kappa.value * (mu - m.structure[k]) + S.sigma.value * rng.normal();
   }
 
   // Regional differentials, in topological order of the price graph
   const R = MODEL.regional;
+  const flows: { into: RegionId; from: RegionId; product: ProductId; excess: number }[] = [];
   for (const a of PRICE_GRAPH) {
     const par = parity(m, cfg, a.hub, a.product);
     if (!par) continue;
@@ -357,6 +376,7 @@ export function stepMarket(m: MarketState, cfg: MarketConfig, rng: Rng): MarketS
     d += kappa * (par.target - d) + sigma * rng.normal();
     if (rng.bernoulli(R.jumpRate.value / 252)) d += rng.laplace(R.jumpScale.value);
     if (par.bound !== null) {
+      // An open arb pulls the price back (cargoes arrive) and moves barrels between regions
       if (a.dir === "import" && d > par.bound) d += R.kappaOut.value * (par.bound - d);
       if (a.dir === "export" && d < par.bound) d += R.kappaOut.value * (par.bound - d);
     }
@@ -366,10 +386,45 @@ export function stepMarket(m: MarketState, cfg: MarketConfig, rng: Rng): MarketS
       if (d < cal.band_lo.value - 1) d += R.kappaOut.value * (cal.band_lo.value - d);
     }
     m.diffs[a.hub][a.product] = d;
+    // Trade flows respond to price vs parity, symmetrically (zero on average): a hub above its
+    // parity point draws extra imports (or exports less); below parity, the reverse.
+    if (par.feasible && a.route !== null) {
+      const gap = a.dir === "import" ? d - par.arbPoint : par.arbPoint - d;
+      const [into, from] = a.dir === "import" ? [HUB_REGION[a.hub], HUB_REGION[a.anchor]] : [HUB_REGION[a.anchor], HUB_REGION[a.hub]];
+      flows.push({ into, from, product: a.product, excess: gap });
+    }
   }
   if (row) {
     m.diffs.NYH.gasoline = row.ng;
     m.diffs.NYH.diesel = row.nd;
+  }
+
+  // Fundamentals: refinery utilisation and regional stocks (vs 5-year normals).
+  //   util: OU around event-driven targets; stocks: refinery output (via utilisation) +
+  //   arbitrage flows + event shifts, mean-reverting; US data in replays
+  const FD = MODEL.fundamentals;
+  for (const reg of REGIONS) {
+    const target = effectShift(m, (t) => t.kind === "util" && t.region === reg);
+    m.util[reg] += FD.utilKappa.value * (target - m.util[reg]) + FD.utilSigma.value * rng.normal();
+  }
+  if (row && row.ud !== null && row.ud !== undefined) m.util.US = row.ud;
+  for (const reg of REGIONS) {
+    for (const p of PRODUCTS) {
+      // stock effects are decaying flows (% of stocks per business day): bans, outages, demand shocks
+      const flow = effectShift(m, (t) => t.kind === "stocks" && t.product === p && (t.region ?? "US") === reg);
+      m.stocks[reg][p] += FD.utilToStock[p].value * m.util[reg] + flow - FD.stockKappa[p].value * m.stocks[reg][p] + FD.stockSigma[p].value * rng.normal() * (reg === "US" ? 1 : 0.8);
+    }
+  }
+  for (const f of flows) {
+    if (f.into === f.from) continue;
+    const q = FD.arbFlow.value * Math.max(-10, Math.min(f.excess, 10));
+    m.stocks[f.into][f.product] += q;
+    m.stocks[f.from][f.product] -= q * 0.5;
+  }
+  if (row) {
+    if (row.sg !== null) m.stocks.US.gasoline = row.sg;
+    if (row.sd !== null) m.stocks.US.diesel = row.sd;
+    if (row.sj !== null) m.stocks.US.jet = row.sj;
   }
   return news;
 }
@@ -381,14 +436,15 @@ export interface PriceRow {
   cracks: Record<ProductId, number>;
   diffs: Record<HubId, Record<ProductId, number>>;
   structure: Record<StructKey, number>;
-  stocks: Record<ProductId, number>;
+  stocks: Record<RegionId, Record<ProductId, number>>;
+  util: Record<RegionId, number>;
   tce: Record<VesselClass, number>;
   regime: Regime;
   choke: Record<ChokepointId, ChokeState>;
 }
 
 export function priceRow(m: MarketState): PriceRow {
-  return structuredClone({ day: m.day, brent: m.brent, cracks: m.cracks, diffs: m.diffs, structure: m.structure, stocks: m.stocks, tce: m.tce, regime: m.regime, choke: m.choke });
+  return structuredClone({ day: m.day, brent: m.brent, cracks: m.cracks, diffs: m.diffs, structure: m.structure, stocks: m.stocks, util: m.util, tce: m.tce, regime: m.regime, choke: m.choke });
 }
 
 export function rowPrice(row: PriceRow, hub: HubId, p: ProductId): number {
