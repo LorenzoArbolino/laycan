@@ -21,17 +21,17 @@ ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "data" / "raw"
 GAL = 42.0
 
+# (id, start Monday, name, weeks): the length covers the event and its aftermath
 EPISODES = [
-    ("abqaiq_2019", "2019-08-26", "Abqaiq attack, autumn 2019"),
-    ("gfc_2008", "2008-09-15", "Financial crisis, autumn 2008"),
-    ("covid_2020", "2020-03-02", "COVID collapse, spring 2020"),
-    ("uri_2021", "2021-02-08", "Texas freeze, winter 2021"),
-    ("ukraine_2022", "2022-02-21", "Russia invades Ukraine, spring 2022"),
-    ("squeeze_2022", "2022-10-03", "Diesel squeeze and price cap, autumn 2022"),
-    ("redsea_2023", "2023-12-04", "Red Sea attacks, winter 2023-24"),
-    ("hormuz_2026", "2026-02-23", "War with Iran and the Hormuz closure, spring 2026"),
+    ("abqaiq_2019", "2019-08-26", "Abqaiq attack, autumn 2019", 19),
+    ("gfc_2008", "2008-09-15", "Financial crisis, autumn 2008", 24),
+    ("covid_2020", "2020-03-02", "COVID collapse, spring 2020", 18),
+    ("uri_2021", "2021-02-08", "Texas freeze, winter 2021", 17),
+    ("ukraine_2022", "2022-02-21", "Russia invades Ukraine, spring 2022", 20),
+    ("squeeze_2022", "2022-10-03", "Diesel squeeze and price cap, autumn 2022", 20),
+    ("redsea_2023", "2023-12-04", "Red Sea attacks, winter 2023-24", 14),
+    ("hormuz_2026", "2026-02-23", "War with Iran and the Hormuz closure, 2026", 26),
 ]
-WEEKS = 12
 LOOKBACK_DAYS = 90  # history shown on the charts before the episode starts
 
 
@@ -57,7 +57,8 @@ def stock_dev(sid: str) -> pd.Series:
 def main() -> None:
     brent = fred("DCOILBRENTEU")
     px = pd.concat(
-        {
+        sort=True,
+        objs={
             "b": brent,
             "g": fred("DGASUSGULF") * GAL - brent,
             "d": fred("DDFUELUSGULF") * GAL - brent,
@@ -86,9 +87,9 @@ def main() -> None:
         },
         "episodes": [],
     }
-    for eid, start, name in EPISODES:
+    for eid, start, name, weeks in EPISODES:
         s = pd.Timestamp(start)
-        e = s + pd.Timedelta(days=7 * WEEKS + 21)  # room for voyages finishing after the game ends
+        e = s + pd.Timedelta(days=7 * weeks + 21)  # room for voyages finishing after the game ends
         w = px.loc[s - pd.Timedelta(days=LOOKBACK_DAYS) : e].dropna()
         st = stocks.reindex(w.index, method="ffill")
         rows = []
@@ -100,7 +101,7 @@ def main() -> None:
                 v = st.loc[d, k]
                 row[k] = None if pd.isna(v) else round(float(v), 2)
             rows.append(row)
-        out["episodes"].append({"id": eid, "name": name, "start": start, "weeks": WEEKS, "rows": rows})
+        out["episodes"].append({"id": eid, "name": name, "start": start, "weeks": weeks, "rows": rows})
         print(eid, len(rows), rows[0]["t"], rows[-1]["t"])
     (ROOT / "params" / "replay.json").write_text(json.dumps(out, separators=(",", ":")) + "\n")
 

@@ -8,9 +8,8 @@ Every dollar of P&L is attributed to flat price, crack, regional arbitrage, time
 
 | Mode | What it is |
 |---|---|
-| **Generated market** (default) | A realistic world with no real date or prices. Regime, Brent, cracks, freight, inventories and chokepoints are drawn from the calibrated model and run forward through a three-month burn-in. Every seed is a different market. |
-| **Historical replay** | Real US benchmark prices (Brent, US Gulf cracks, NY Harbor spreads) and US stocks, day by day from EIA data. Other hubs, freight and curves are modelled around them, and the period's main events are scripted. Episodes: Financial crisis 2008, Abqaiq 2019, COVID 2020, Texas freeze 2021, Ukraine 2022, diesel squeeze 2022, Red Sea 2023-24, Iran war 2026. |
-| **Start from a real date** | Initialised from real data (Nov 2025 baseline, Nov 2026 war regime), then simulated forward. |
+| **Generated market** (default) | A realistic world with no real date or prices. Regime, Brent, cracks, freight, inventories and chokepoints are drawn from the calibrated model and run forward through a three-month burn-in. Every seed is a different market. Choose 8, 12, 26 or 52 weeks. |
+| **Historical replay** | Real US benchmark prices (Brent, US Gulf cracks, NY Harbor spreads) and US stocks, day by day from EIA data. Other hubs, freight and curves are modelled around them, and the period's main events are scripted. Each episode runs for as long as the event matters: Financial crisis 2008 (24 weeks), Abqaiq 2019 (19), COVID 2020 (18), Texas freeze and Colonial 2021 (17), Ukraine 2022 (20), diesel squeeze and embargo 2022-23 (20), Red Sea 2023-24 (14), Iran war 2026 (26). |
 
 Games are seeded and deterministic: the same seed and actions give identical results on every platform, and the market path does not depend on what the player does.
 
@@ -18,6 +17,8 @@ Games are seeded and deterministic: the same seed and actions give identical res
 
 - **Trade cargoes:** buy FOB, CIF/DES delivered or in-tank (ITT); sell delivered, FOB or in-tank; ask the market for quotes.
 - **Ship:** charter MR/LR1/LR2 tankers on ten routes (Suez or Cape variants) and see each arb at today's prices.
+- **Divert:** re-route a laden ship to another hub when a better market opens. You pay the deviation, and the destination option shows up in the attribution.
+- **Blend:** mix butane, naphtha, isomerate, reformate, FCC gasoline, alkylate and ethanol in your tank to make EN 228 or US regular gasoline. Specs cover octane, vapour pressure (seasonal), sulphur, aromatics, olefins, benzene and oxygen; a linear-program optimiser shows the cheapest on-spec recipe to beat.
 - **Store:** lease tank capacity (take-or-pay, dearer in contango), hold inventory, sell spot, and compare contango against rent plus financing.
 - **Hedge:** RBOB, NY Harbor ULSD, ICE Gasoil and Brent futures with daily variation margin.
 - **Watch the world map:** hubs with live prices, sea routes coloured by whether the arb is open, chokepoint states, your ships along their routes, and tank inventories.
@@ -30,7 +31,7 @@ npm test                 # unit, property, stylized-fact, sanity and golden test
 npm run dev              # web app (http://localhost:5173)
 npm run build            # static build in apps/web/dist, deployable to any static host
 npm run e2e              # browser end-to-end tests (Playwright, Chromium)
-npm run play -- --seed 42                       # command-line game (generated market)
+npm run play -- --seed 42 --weeks 26            # command-line game (generated market)
 npm run play -- --scenario covid_2020 --seed 42  # a historical replay
 npx tsx packages/cli/src/main.ts list            # all modes and episodes
 npx tsx packages/cli/src/main.ts assumptions > assumptions.md   # assumptions sheet

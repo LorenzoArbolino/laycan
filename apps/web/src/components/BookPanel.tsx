@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FUTURES, FUTURES_IDS, HUBS, ROUTES, contractPrice, isoDate, listedMonths, type Action, type FuturesId, type Game, type HubId } from "@laycan/engine";
 import { kbbl, money, shortDate, signed } from "../format";
+import { BlendPanel, DivertControl } from "./Operations";
 
 const STAGES = ["fixed", "loading", "sailing", "discharging", "done"] as const;
 
@@ -167,7 +168,9 @@ export function BookPanel({ game, act }: { game: Game; act: (a: Action) => void 
             load {shortDate(isoDate(v.arriveLoad))}
             {v.arriveDisch ? ` · discharge ${shortDate(isoDate(v.arriveDisch))}` : ` · ~${v.sailDays}d at sea`} · port hours {v.portHours.toFixed(0)}/{v.laytimeHours} laytime · demurrage ${(v.demurrageRate / 1e3).toFixed(0)}k/day
             {v.saleId ? ` · delivers ${v.saleId}` : " · no sale yet"}
+            {v.divertedFrom ? ` · diverted from ${v.divertedFrom}` : ""}
           </div>
+          {v.status === "sailing" && <DivertControl game={game} v={v} act={act} />}
         </div>
       ))}
       <h2 style={{ marginTop: 12 }}>Cargo in tank</h2>
@@ -190,6 +193,7 @@ export function BookPanel({ game, act }: { game: Game; act: (a: Action) => void 
       ))}
       <Hedge game={game} act={act} />
       <Storage game={game} act={act} />
+      <BlendPanel game={game} act={act} />
       <h2 style={{ marginTop: 12 }}>Exposure by price component</h2>
       {exps.length === 0 && <div className="empty">No price exposure. Note: an unpriced floating purchase has none until its pricing window starts.</div>}
       <table>

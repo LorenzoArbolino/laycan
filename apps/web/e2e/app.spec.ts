@@ -22,9 +22,9 @@ test("a game is bit-identical in Node and in the browser", async ({ page }) => {
 
 test("play two weeks: buy and ship a cargo, see it in the book and P&L", async ({ page }) => {
   await page.goto("/?seed=e2e-1");
-  await page.getByTestId("scenario-now_2026_11").click();
+  await page.getByTestId("scenario-redsea_2023").click();
   await page.getByTestId("start").click();
-  await expect(page.getByTestId("date")).toHaveText("2 Nov 2026");
+  await expect(page.getByTestId("date")).toHaveText("4 Dec 2023");
   const buy = page.getByRole("button", { name: "Buy + ship" }).first();
   await expect(buy).toBeVisible();
   await buy.click();
@@ -32,9 +32,9 @@ test("play two weeks: buy and ship a cargo, see it in the book and P&L", async (
   await expect(page.getByTestId("voyage").first()).toBeVisible();
   await expect(page.getByTestId("ship").first()).toBeVisible();
   await page.getByTestId("next").click();
-  await expect(page.getByTestId("date")).toHaveText("9 Nov 2026");
+  await expect(page.getByTestId("date")).toHaveText("11 Dec 2023");
   await page.getByTestId("next").click();
-  await expect(page.getByTestId("date")).toHaveText("16 Nov 2026");
+  await expect(page.getByTestId("date")).toHaveText("18 Dec 2023");
   await expect(page.getByLabel("P&L attribution")).toContainText("Freight");
   await expect(page.getByText("exact")).toBeVisible();
   await page.getByRole("button", { name: "Assumptions" }).click();
@@ -68,4 +68,23 @@ test("historical replay, storage and futures buttons", async ({ page }) => {
   await page.getByTestId("hub-ARA").click();
   await expect(page.getByText("Showing ARA only")).toBeVisible();
   await page.screenshot({ path: "test-results/replay.png", fullPage: true });
+});
+
+test("blending and diversion from the book", async ({ page }) => {
+  await page.goto("/?seed=e2e-4");
+  await page.getByTestId("scenario-covid_2020").click();
+  await page.getByTestId("start").click();
+  await page.getByRole("button", { name: "Buy + ship" }).first().click();
+  await page.getByTestId("tab-book").click();
+  await page.getByRole("button", { name: /Lease tank/ }).click();
+  await page.getByTestId("blend").click();
+  await expect(page.getByText(/Blended 200 kbbl/)).toBeVisible();
+  for (let i = 0; i < 4; i++) await page.getByTestId("next").click();
+  await page.getByTestId("tab-book").click();
+  const divert = page.getByRole("button", { name: "Divert…" }).first();
+  await expect(divert).toBeVisible();
+  await divert.click();
+  await page.getByRole("button", { name: "Divert", exact: true }).first().click();
+  await expect(page.getByText(/diverted to/).first()).toBeVisible();
+  await page.screenshot({ path: "test-results/ops.png", fullPage: true });
 });

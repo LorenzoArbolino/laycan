@@ -12,6 +12,7 @@ import {
   hubPrice,
   perBbl,
   routeGeometry,
+  HUB_PAIRS,
   voyagePosition,
   type Game,
   type HubId,
@@ -103,6 +104,14 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
             );
           }),
         )}
+
+        {ships
+          .filter(({ v }) => v.pathKey)
+          .map(({ v }) => (
+            <path key={`d-${v.id}`} d={path({ type: "LineString", coordinates: v.path ?? HUB_PAIRS[v.pathKey!]?.path ?? [] }) ?? ""} fill="none" stroke="var(--ship)" strokeWidth={2} strokeDasharray="6 3">
+              <title>{`${v.id} diverted from ${v.divertedFrom} to ${v.to}`}</title>
+            </path>
+          ))}
 
         {Object.entries(CHOKEPOINT_COORDS).map(([c, coord]) => {
           const [x, y] = pt(coord);

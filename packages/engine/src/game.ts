@@ -33,7 +33,7 @@ import { exp, sqrt } from "./core/dmath";
 import { Rng, type RngState } from "./core/rng";
 import { productBblPerTonne, type ProductId } from "./core/units";
 import { applyTransitions, drawMacroEvents, fireEvent, type MacroContext, type MacroEventKind, type NewsItem, type PortDisruption } from "./events/macro";
-import { quoteRoute, type VoyageQuote } from "./market/freight";
+import { quoteRoute, vlsfoPrice, type VoyageQuote } from "./market/freight";
 import { FUTURES, listedMonths, type FuturesId } from "./market/futures";
 import {
   cloneMarket,
@@ -51,11 +51,31 @@ import {
 import { MODEL, SCENARIOS, type Scenario, type ScriptedEvent } from "./params/model";
 import { makeGeneratedScenario } from "./params/generated";
 import { EPISODES, makeHistoricalScenario } from "./params/episodes";
-import { CHOKEPOINT_INFO, VESSELS, routeById, type HubId } from "./world/world";
+import { CHOKEPOINT_INFO, HUBS, VESSELS, routeById, type ChokepointId, type HubId } from "./world/world";
+import { HUB_PAIRS, chokepointsOn, insideGulf, nearestOnPath, pathLength, voyagePosition } from "./world/geo";
+import { est } from "./params/param";
+import { BLEND_FEE, blendQuality, checkSpec, componentPrices, gradeFor, offSpecDiscount, optimalRecipe, recipeCost, type Recipe } from "./blending/blend";
 
 export const DAYS_PER_MONTH = 30.4375;
 export const MARGIN_PCT = { normal: 0.08, stressed: 0.12, war: 0.14 } as const;
 export const BORROWING_BASE_ADVANCE = 0.8;
+export const BLEND_HUBS: readonly HubId[] = ["ARA", "USGC", "NYH", "SIN"];
+export const DIVERSION = {
+  fee: est(25_000, "$", "owner's admin and agency costs of a diversion, order of magnitude"),
+  detour: est(1.05, "x", "sea-path detour factor for the remaining leg after a diversion (approximation)"),
+};
+
+export interface DiversionOption {
+  to: HubId;
+  remainingDays: number;
+  extraDays: number;
+  costUsd: number;
+  priceGainPerBbl: number;
+  netPerBbl: number;
+  feasible: boolean;
+  blockedBy: string[];
+  breaksSale?: string;
+}
 export const PENALTY = { failToLift: 2, failToDeliver: 3, late: 0.5 } as const;
 
 export interface GameOptions {
@@ -109,7 +129,9 @@ export type Action =
   | { type: "quote"; side: "buy" | "sell"; product: ProductId; hub: HubId; incoterm: "FOB" | "CIF" | "DES" | "ITT" }
   | { type: "assign"; saleId: string; voyageId: string }
   | { type: "lease"; hub: HubId; capacityBbl: number; months: number }
-  | { type: "sellSpot"; cargoId: string; qtyBbl?: number };
+  | { type: "sellSpot"; cargoId: string; qtyBbl?: number }
+  | { type: "divert"; voyageId: string; to: HubId }
+  | { type: "blend"; hub: HubId; volumeBbl: number; recipe?: Recipe };
 
 export interface ActionResult {
   ok: boolean;
@@ -424,6 +446,10 @@ export class Game {
         return this.lease(a.hub, a.capacityBbl, a.months);
       case "sellSpot":
         return this.sellSpot(a.cargoId, a.qtyBbl);
+      case "divert":
+        return this.divert(a.voyageId, a.to);
+      case "blend":
+        return this.blend(a.hub, a.volumeBbl, a.recipe);
       case "assign": {
         const s = this.book.deals.find((d) => d.id === a.saleId && d.side === "sell" && d.status === "open");
         const v = this.book.voyages.find((x) => x.id === a.voyageId);
@@ -550,6 +576,8 @@ export class Game {
       portHours: 0,
       heldDays: 0,
       draws,
+      chokepoints: [...(r.variants.find((x) => x.via === q.via)?.chokepoints ?? [])],
+      pathNm: q.distanceNm,
     };
     if (purchaseId) {
       const d = this.book.deals.find((x) => x.id === purchaseId);
@@ -849,12 +877,13 @@ export class Game {
   }
 
   private chokeBlocked(v: Voyage): boolean {
-    const variant = routeById(v.routeId).variants.find((x) => x.via === v.via)!;
-    return variant.chokepoints.some((c) => this.market.choke[c] === "closed");
+    const chokes = v.chokepoints ?? routeById(v.routeId).variants.find((x) => x.via === v.via)!.chokepoints;
+    return chokes.some((c) => this.market.choke[c] === "closed");
   }
 
   /** Try to reroute around a closed chokepoint; returns true if rerouted. */
   private reroute(v: Voyage): boolean {
+    if (v.pathKey) return false; // diverted voyages have no alternative variant
     const qs = this.quotes(v.routeId);
     const cur = qs.find((q) => q.via === v.via)!;
     const alt = qs.filter((q) => q.feasible && q.via !== v.via).sort((a, b) => a.allInPerTonne - b.allInPerTonne)[0];
@@ -865,6 +894,8 @@ export class Game {
       this.book.cash -= extraCost;
     });
     v.via = alt.via;
+    v.chokepoints = [...(routeById(v.routeId).variants.find((x) => x.via === alt.via)?.chokepoints ?? [])];
+    v.pathNm = alt.distanceNm;
     v.sailDays += extraDays;
     if (v.arriveDisch !== undefined) v.arriveDisch += extraDays;
     this.alert(`Voyage ${v.id} rerouted via ${alt.via}`, `A chokepoint on the planned route closed. +${extraDays} days, deviation cost ${(extraCost / 1e3).toFixed(0)}k.`, "warn");
@@ -1091,6 +1122,143 @@ export class Game {
         }
       });
     }
+  }
+
+  // ---------------------------------------------------------------- diversions at sea
+
+  /**
+   * Where a laden cargo could go instead. Distances come from sea paths between the hubs;
+   * the ship's position is mapped onto the new path by distance already sailed (a good
+   * approximation early in a voyage, which is when diversions happen).
+   */
+  diversionOptions(voyageId: string): DiversionOption[] {
+    return this.diversionPlans(voyageId).map((p) => p.option);
+  }
+
+  /**
+   * Plans for re-routing a laden ship: from its current position, join the sea path from its
+   * load port to the new hub at the nearest point (crossing open water to get there), then
+   * follow that path. Distances scale the map geometry to the sea-route length.
+   */
+  private diversionPlans(voyageId: string): { option: DiversionOption; path: [number, number][]; remainingNm: number; chokepoints: ChokepointId[] }[] {
+    const v = this.book.voyages.find((x) => x.id === voyageId);
+    const c = v && this.book.cargoes.find((x) => x.id === v.cargoId);
+    if (!v || !c || v.status !== "sailing") return [];
+    const spec = VESSELS[v.cls];
+    const perDay = spec.speedKnots.value * 24;
+    const here = voyagePosition(v, this.day);
+    const P = here.at;
+    const remainingOld = Math.max(0, (v.pathNm ?? 0) * (1 - here.progress));
+    const vlsfo = vlsfoPrice(this.market.brent);
+    const out: ReturnType<Game["diversionPlans"]> = [];
+    for (const to of HUBS) {
+      if (to === v.to) continue;
+      const pair = HUB_PAIRS[`${v.from}>${to}`];
+      if (!pair || to === v.from) continue;
+      const nmPerDeg = pair.nm / Math.max(1e-6, pathLength(pair.path));
+      const near = nearestOnPath(pair.path, P);
+      const rest = pair.path.slice(near.index);
+      const path: [number, number][] = [P, near.point, ...rest];
+      const remaining = pair.nm - near.along * nmPerDeg + near.gap * 60 * DIVERSION.detour.value;
+      const chokes: ChokepointId[] = chokepointsOn([near.point, ...rest]).filter((k) => k !== "hormuz");
+      if (insideGulf(P) !== (to === "MEG")) chokes.push("hormuz");
+      const newChokes = chokes.filter((k) => !(v.chokepoints ?? []).includes(k));
+      const blockedBy = chokes.filter((k) => this.market.choke[k] === "closed");
+      const extraDays = (remaining - remainingOld) / perDay;
+      const warRisk = newChokes.reduce((s, k) => s + (CHOKEPOINT_INFO[k].warRiskPctHull[this.market.choke[k]].value / 100) * spec.hullValueUsd.value, 0);
+      const cost = DIVERSION.fee.value + Math.max(0, extraDays) * (this.market.tce[v.cls] + spec.seaConsumptionTpd.value * vlsfo) + warRisk;
+      const priceGain = hubPrice(this.market, to, c.product) - hubPrice(this.market, v.to, c.product);
+      out.push({
+        option: {
+          to,
+          remainingDays: remaining / perDay,
+          extraDays,
+          costUsd: cost,
+          priceGainPerBbl: priceGain,
+          netPerBbl: priceGain - cost / c.qty,
+          feasible: blockedBy.length === 0,
+          blockedBy,
+          breaksSale: v.saleId,
+        },
+        path,
+        remainingNm: remaining,
+        chokepoints: chokes,
+      });
+    }
+    return out.sort((a, b) => b.option.netPerBbl - a.option.netPerBbl);
+  }
+
+  private divert(voyageId: string, to: HubId): ActionResult {
+    const v = this.book.voyages.find((x) => x.id === voyageId);
+    const plan = this.diversionPlans(voyageId).find((p) => p.option.to === to);
+    if (!v || !plan) return { ok: false, message: "Only laden ships at sea can be diverted, to another hub." };
+    const opt = plan.option;
+    if (!opt.feasible) return { ok: false, message: `Diversion to ${to} is blocked (${opt.blockedBy.join(", ")}).` };
+    const c = this.book.cargoes.find((x) => x.id === v.cargoId)!;
+    // Freight: deviation and admin costs for the charterer's account
+    this.post("freight", () => {
+      this.book.cash -= opt.costUsd;
+    });
+    // The cargo now belongs to the new market: the value of the destination option is realised here
+    this.post("optionality", () => {
+      c.hub = to;
+    });
+    if (v.saleId) {
+      const s = this.book.deals.find((x) => x.id === v.saleId);
+      if (s) s.voyageId = undefined;
+      this.alert(`Sale ${v.saleId} needs another cargo`, `Voyage ${v.id} no longer goes to ${v.to}. Find another cargo before the laycan or face a delivery penalty.`, "warn");
+      v.saleId = undefined;
+    }
+    const remainingDays = Math.ceil(opt.remainingDays);
+    v.divertedFrom = v.divertedFrom ?? v.to;
+    v.to = to;
+    v.pathKey = `${v.from}>${to}`;
+    v.path = plan.path;
+    v.chokepoints = plan.chokepoints;
+    v.pathNm = plan.remainingNm;
+    v.legStartDay = this.day;
+    v.legStartFrac = 0;
+    v.arriveDisch = this.day + Math.max(1, remainingDays);
+    v.sailDays = v.arriveDisch - (v.blDay ?? this.day);
+    return {
+      ok: true,
+      message: `${v.id} diverted to ${to}: arrives in ~${remainingDays} days; deviation cost ${(opt.costUsd / 1e3).toFixed(0)}k; price at ${to} ${opt.priceGainPerBbl >= 0 ? "+" : ""}${opt.priceGainPerBbl.toFixed(2)} $/bbl vs ${v.divertedFrom}.`,
+    };
+  }
+
+  // ---------------------------------------------------------------- blending
+
+  /** Blending quote at a hub: grade, component prices, optimal recipe, cost and margin vs finished gasoline. */
+  blendQuote(hub: HubId, recipe?: Recipe) {
+    const grade = gradeFor(hub, this.day);
+    const prices = componentPrices(this.market, hub);
+    const optimal = optimalRecipe(prices, grade);
+    const use = recipe ?? optimal ?? {};
+    const quality = blendQuality(use);
+    const checks = checkSpec(quality, grade);
+    const cost = recipeCost(use, prices) + BLEND_FEE.value;
+    const finished = hubPrice(this.market, hub, "gasoline");
+    const discount = offSpecDiscount(checks);
+    return { grade, prices, optimal, recipe: use, quality, checks, cost, finished, discount, margin: finished - discount - cost, freeTank: Math.max(0, this.leasedCapacity(hub) - this.tankStock(hub)) };
+  }
+
+  private blend(hub: HubId, volumeBbl: number, recipe?: Recipe): ActionResult {
+    if (!BLEND_HUBS.includes(hub)) return { ok: false, message: `No blending terminal for you at ${hub}. Blend at ${BLEND_HUBS.join(", ")}.` };
+    const q = this.blendQuote(hub, recipe);
+    if (!q.optimal && !recipe) return { ok: false, message: "No combination of components meets the specification today." };
+    const vol = Math.round(volumeBbl);
+    if (!(vol > 0)) return { ok: false, message: "Volume must be positive." };
+    if (vol > q.freeTank) return { ok: false, message: `Blending needs tank space: ${(q.freeTank / 1000).toFixed(0)} kbbl free at ${hub}. Lease more tankage first.` };
+    const failed = q.checks.filter((x) => !x.ok);
+    this.post("quality", () => {
+      this.book.cash -= vol * q.cost;
+      this.book.cargoes.push({ id: this.id("C"), product: "gasoline", qty: vol, hub, where: "tank", qualityDiscount: q.discount, sinceDay: this.day });
+    });
+    if (failed.length) this.alert(`Off-spec blend at ${hub}`, `Fails ${failed.map((f) => f.label).join(", ")}. The batch is worth $${q.discount.toFixed(2)}/bbl less until re-blended or sold at a discount.`, "warn");
+    return {
+      ok: true,
+      message: `Blended ${(vol / 1000).toFixed(0)} kbbl ${q.grade.name} at ${hub}: cost ${q.cost.toFixed(2)} vs finished ${q.finished.toFixed(2)} $/bbl, margin ${q.margin >= 0 ? "+" : ""}${q.margin.toFixed(2)} $/bbl${failed.length ? " (OFF-SPEC)" : ""}.`,
+    };
   }
 
   // ---------------------------------------------------------------- storage

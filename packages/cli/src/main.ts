@@ -110,6 +110,9 @@ Commands
   lease <hub> [kbbl] [months]    lease tank capacity (take-or-pay)
   spot <cargoId>                 sell a tank parcel to a merchant now (index − haircut)
   carry                          cash-and-carry economics by hub
+  divert <voyageId> [hub]        list diversion options, or divert a laden ship to another hub
+  blend <hub> [kbbl]             show the optimal gasoline blend, or blend into your leased tank
+  --weeks <n>                    game length for generated markets (default 12)
   fut <RB|HO|GO|BRN> <month#> <lots>       trade futures (month# 0 = front; lots < 0 to sell)
   curve                          futures curves
   quote <buy|sell> <product> <hub> <FOB|DES|CIF>   ask the market for a quote
@@ -127,7 +130,7 @@ async function play() {
   if (load) {
     const fs = await import("node:fs");
     g = Game.fromJSON(fs.readFileSync(load, "utf8"));
-  } else g = Game.create({ scenario, seed });
+  } else g = Game.create({ scenario, seed, weeks: scenario === "generated" ? Number(opt("weeks", "12")) : undefined });
   const sc = g.scenario;
   console.log(`\nLAYCAN — ${sc.name}\nSeed ${g.state.seed}. ${sc.description}\n`);
   for (const n of g.state.news) console.log(`  • ${n.title}`);
@@ -193,6 +196,25 @@ async function handle(g: Game, c: string, a: string[]): Promise<void> {
     case "spot":
       console.log(g.act({ type: "sellSpot", cargoId: a[0]! }).message);
       return;
+    case "divert": {
+      if (!a[1]) {
+        for (const o of g.diversionOptions(a[0]!)) console.log(`  → ${o.to.padEnd(5)} price ${o.priceGainPerBbl.toFixed(2).padStart(6)}  extra days ${o.extraDays.toFixed(1).padStart(5)}  cost ${(o.costUsd / 1e3).toFixed(0).padStart(5)}k  net ${o.netPerBbl.toFixed(2).padStart(6)} $/bbl ${o.feasible ? "" : "BLOCKED"}`);
+        return;
+      }
+      console.log(g.act({ type: "divert", voyageId: a[0]!, to: a[1] as HubId }).message);
+      return;
+    }
+    case "blend": {
+      const hub = (a[0] ?? "ARA") as HubId;
+      if (!a[1]) {
+        const q = g.blendQuote(hub);
+        console.log(`  ${q.grade.name}: optimal recipe ${Object.entries(q.recipe).filter(([, v]) => (v ?? 0) > 0.001).map(([k, v]) => `${k} ${((v ?? 0) * 100).toFixed(1)}%`).join(", ")}`);
+        console.log(`  cost ${q.cost.toFixed(2)} vs finished ${q.finished.toFixed(2)} $/bbl: margin ${q.margin.toFixed(2)}; free tank ${(q.freeTank / 1000).toFixed(0)} kbbl`);
+        return;
+      }
+      console.log(g.act({ type: "blend", hub, volumeBbl: Number(a[1]) * 1000 }).message);
+      return;
+    }
     case "carry":
       for (const h of ["ARA", "USGC", "SIN", "FUJ"] as const)
         for (const p of ["diesel", "gasoline"] as const) {
@@ -262,7 +284,6 @@ function simulate() {
 if (cmd === "list") {
   console.log("generated              Generated market (default): realistic world, no real date or prices");
   for (const e of EPISODES) console.log(`${e.id.padEnd(22)} Historical replay: ${e.name}`);
-  for (const s of Object.values(SCENARIOS)) console.log(`${s.id.padEnd(22)} Real start: ${s.name}`);
 } else if (cmd === "assumptions") stdout.write(assumptionsMarkdown());
 else if (cmd === "simulate") simulate();
 else await play();

@@ -17,3 +17,5 @@ export { Rng } from "./core/rng";
 export * from "./world/geo";
 export { makeGeneratedScenario } from "./params/generated";
 export { EPISODES, makeHistoricalScenario, replayRows, REPLAY_SOURCE } from "./params/episodes";
+export * from "./blending/blend";
+export { solveLP } from "./blending/lp";

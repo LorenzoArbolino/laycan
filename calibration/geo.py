@@ -31,8 +31,27 @@ def simplify(coords: list[list[float]], tol: float = 0.25) -> list[list[float]]:
     return [[round(x, 2), round(y, 2)] for x, y in out]
 
 
+CHOKEPOINTS = {"hormuz": (56.4, 26.5), "babelmandeb": (43.4, 12.6), "suez": (32.35, 30.6)}
+
+
+def passes(coords, point, tol=1.2) -> bool:
+    return any(abs(x - point[0]) < tol and abs(y - point[1]) < tol for x, y in coords)
+
+
 def main() -> None:
-    out = {"source": "searoute 1.6 (Apache-2.0) on the Eurostat MARNET network", "ports": PORTS, "routes": {}}
+    out = {"source": "searoute 1.6 (Apache-2.0) on the Eurostat MARNET network", "ports": PORTS, "routes": {}, "pairs": {}}
+    # Hub-to-hub paths (used for diversions at sea): distance, chokepoints passed, geometry
+    for a in PORTS:
+        for b in PORTS:
+            if a == b:
+                continue
+            r = sr.searoute(PORTS[a], PORTS[b], units="naut", restrictions=["northwest"])
+            coords = r["geometry"]["coordinates"]
+            chokes = [c for c, pt in CHOKEPOINTS.items() if c != "hormuz" and passes(coords, pt)]
+            # Hormuz is crossed exactly when a path enters or leaves the Gulf (MEG); Fujairah is outside
+            if (a == "MEG") != (b == "MEG"):
+                chokes.append("hormuz")
+            out["pairs"][f"{a}>{b}"] = {"nm": round(float(r["properties"]["length"])), "chokepoints": sorted(chokes), "path": simplify(coords)}
     for k, (a, b, restr) in VARIANTS.items():
         r = sr.searoute(PORTS[a], PORTS[b], units="naut", restrictions=["northwest"] + restr)
         coords = simplify(r["geometry"]["coordinates"])

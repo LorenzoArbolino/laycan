@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EPISODES, Game, SCENARIOS, assumptionRows, type Action, type HubId, type NewsItem } from "@laycan/engine";
+import { EPISODES, Game, assumptionRows, type Action, type HubId, type NewsItem } from "@laycan/engine";
 import { MarketPanel } from "./components/MarketPanel";
 import { OffersPanel } from "./components/OffersPanel";
 import { BookPanel } from "./components/BookPanel";
@@ -34,8 +34,11 @@ function seedFromUrl(): string | null {
   }
 }
 
-function StartScreen({ onStart, resume }: { onStart: (scenario: string, seed: string) => void; resume: Game | null }) {
+function StartScreen({ onStart, resume }: { onStart: (scenario: string, seed: string, weeks?: number) => void; resume: Game | null }) {
   const [scenario, setScenario] = useState("generated");
+  const [weeks, setWeeks] = useState(12);
+  const episode = EPISODES.find((e) => e.id === scenario);
+  const episodeWeeks = episode ? Game.scenarioFor(episode.id, "x").weeks : weeks;
   const [seed, setSeed] = useState(seedFromUrl() ?? String(Math.floor(Math.random() * 1e6)));
   const card = (id: string, title: string, body: string, extra = "") => (
     <button key={id} className={`card ${extra} ${scenario === id ? "selected" : ""}`} onClick={() => setScenario(id)} data-testid={`scenario-${id}`}>
@@ -63,14 +66,7 @@ function StartScreen({ onStart, resume }: { onStart: (scenario: string, seed: st
             <h2>Historical replay</h2>
             <small>real US benchmark prices and stocks day by day; the rest of the world is modelled around them</small>
           </div>
-          <div className="cards">{EPISODES.map((e) => card(e.id, e.name, e.teaser))}</div>
-        </div>
-        <div>
-          <div className="mode-title">
-            <h2>Start from a real date</h2>
-            <small>initialised from real market data, then simulated forward</small>
-          </div>
-          <div className="cards">{Object.values(SCENARIOS).map((s) => card(s.id, s.name, s.description))}</div>
+          <div className="cards">{EPISODES.map((e) => card(e.id, e.name, `${e.teaser} (${Game.scenarioFor(e.id, "x").weeks} weeks)`))}</div>
         </div>
       </div>
       <div className="form-row" style={{ marginTop: 16 }}>
@@ -78,8 +74,20 @@ function StartScreen({ onStart, resume }: { onStart: (scenario: string, seed: st
           Seed (same seed, same market)
           <input value={seed} onChange={(e) => setSeed(e.target.value)} aria-label="Seed" />
         </label>
-        <button className="btn primary" onClick={() => onStart(scenario, seed)} data-testid="start">
-          Start 12-week game
+        {scenario === "generated" && (
+          <label className="field">
+            Duration
+            <select value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} aria-label="Duration">
+              {[8, 12, 26, 52].map((w) => (
+                <option key={w} value={w}>
+                  {w} weeks{w === 52 ? " (a year)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <button className="btn primary" onClick={() => onStart(scenario, seed, scenario === "generated" ? weeks : undefined)} data-testid="start">
+          Start {episodeWeeks}-week game
         </button>
         {resume && !resume.over && (
           <button className="btn" onClick={() => onStart("", "")}>
@@ -197,8 +205,8 @@ export function App() {
 
   const g = gameRef.current;
 
-  const start = (scenario: string, seed: string) => {
-    gameRef.current = scenario ? Game.create({ scenario, seed }) : saved;
+  const start = (scenario: string, seed: string, weeks?: number) => {
+    gameRef.current = scenario ? Game.create({ scenario, seed, weeks }) : saved;
     save(gameRef.current);
     refresh();
   };
@@ -227,7 +235,8 @@ export function App() {
   if (!g) return <StartScreen onStart={start} resume={saved} />;
 
   const s = g.score();
-  const week = Math.min(12, Math.floor((g.day - g.state.startDay) / 7) + 1);
+  const totalWeeks = Math.round((g.state.endDay - g.state.startDay) / 7);
+  const week = Math.min(totalWeeks, Math.floor((g.day - g.state.startDay) / 7) + 1);
   const b = g.breakdown();
   return (
     <div className="app">
@@ -241,7 +250,7 @@ export function App() {
         </div>
         <div className="kpi">
           <span className="label">Week</span>
-          <span className="value">{g.over ? "done" : `${week}/12`}</span>
+          <span className="value">{g.over ? "done" : `${week}/${totalWeeks}`}</span>
         </div>
         <div className="kpi">
           <span className="label">Equity</span>
@@ -260,7 +269,7 @@ export function App() {
         <div className="kpi">
           <span className="label">Mode</span>
           <span className="value" style={{ fontSize: 12, fontFamily: "var(--sans)" }}>
-            {g.scenario.kind === "generated" ? "Generated" : g.scenario.kind === "historical" ? "Replay" : "Real start"}
+            {g.scenario.kind === "historical" ? "Replay" : "Generated"}
           </span>
         </div>
         <div className="kpi">

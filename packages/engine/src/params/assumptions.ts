@@ -5,6 +5,8 @@
 import calibration from "../../../../params/calibration.json" with { type: "json" };
 import { CHOKEPOINT_INFO, VESSELS } from "../world/world";
 import { MODEL, SCENARIOS } from "./model";
+import { BLEND_FEE, COMPONENT_DATA, COMPONENT_PRICE_NOTE, OFFSPEC_NOTE } from "../blending/blend";
+import { DIVERSION } from "../game";
 import { collectParams, type Param } from "./param";
 
 export interface AssumptionRow {
@@ -35,7 +37,9 @@ export function assumptionRows(): AssumptionRow[] {
     ["Model", MODEL],
     ["Vessels", VESSELS],
     ["Chokepoints", CHOKEPOINT_INFO],
-    ...Object.values(SCENARIOS).map((s) => [`Scenario: ${s.name}`, s] as [string, unknown]),
+    ["Blending", { components: COMPONENT_DATA, componentPrices: COMPONENT_PRICE_NOTE, fee: BLEND_FEE, offSpec: OFFSPEC_NOTE }],
+    ["Diversions", DIVERSION],
+    ...Object.values(SCENARIOS).map((s) => [`Regime preset: ${s.id}`, s] as [string, unknown]),
   ];
   const rows: AssumptionRow[] = [];
   const seen = new Set<string>();

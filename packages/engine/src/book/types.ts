@@ -144,6 +144,16 @@ export interface Voyage {
   purchaseId?: string;
   saleId?: string;
   cargoId?: string;
+  /** chokepoints on the current path */
+  chokepoints?: ("hormuz" | "babelmandeb" | "suez")[];
+  /** current path length, nm, and where the current leg started (for map positions after a diversion) */
+  pathNm?: number;
+  pathKey?: string;
+  /** explicit geometry of the current leg after a diversion ([lon, lat] points) */
+  path?: [number, number][];
+  legStartDay?: number;
+  legStartFrac?: number;
+  divertedFrom?: HubId;
   /** pre-drawn micro-event outcomes (keyed RNG per voyage, so player actions elsewhere do not change them) */
   draws: {
     arrivalOffset: number;
