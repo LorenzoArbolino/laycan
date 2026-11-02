@@ -47,7 +47,7 @@ export interface VesselSpec {
   laytimeHours: Param;
 }
 
-const vsrc = "industry rules of thumb; brief §5.4";
+const vsrc = "industry rules of thumb for clean product tankers";
 export const VESSELS: Record<VesselClass, VesselSpec> = {
   MR: {
     cls: "MR",

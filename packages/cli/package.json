@@ -2,6 +2,7 @@
   "name": "@laycan/cli",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "bin": { "laycan": "src/main.ts" },
   "scripts": { "play": "tsx src/main.ts" },

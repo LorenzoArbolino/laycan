@@ -1,5 +1,6 @@
-// Fails if any tracked file looks like raw or licensed market data.
-// Only fitted parameters (params/*.json, with provenance) may be committed.
+// Fails if any tracked file looks like raw downloads or licensed market data.
+// Committed data lives in params/*.json: fitted parameters with provenance, public-domain EIA
+// replay series (cited) and computed sea-route geometry. Exchange and PRA data never go in.
 import { execSync } from "node:child_process";
 
 const tracked = execSync("git ls-files", { encoding: "utf8" }).split("\n").filter(Boolean);

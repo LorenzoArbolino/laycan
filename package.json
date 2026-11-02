@@ -1,6 +1,7 @@
 {
   "name": "laycan",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "workspaces": ["packages/engine", "packages/cli", "apps/web"],
   "scripts": {

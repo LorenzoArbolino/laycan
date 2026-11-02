@@ -3,8 +3,8 @@
  * the label, so an estimate is never presented as market data.
  *
  *  - data:     an observed value from a public source
- *  - derived:  fitted or computed from public data (or, for private calibration, from
- *              exchange data that is not redistributed; the method says so)
+ *  - derived:  fitted or computed from public data (or, where the source says so, from
+ *              exchange data used for calibration only and not redistributed)
  *  - estimate: an informed assumption, to be reviewed
  */
 export type ParamLabel = "data" | "derived" | "estimate";

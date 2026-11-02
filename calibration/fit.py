@@ -282,11 +282,11 @@ def main() -> None:
         "y2026_brent_spot_peak_date": str(df["brent"].loc["2026"].idxmax().date()),
         "y2026_brent_spot_low_mar_dec": float(df["brent"].loc["2026-04-01":].min()),
     }
-    # ---------- §16 reconciliation ----------
+    # ---------- Reconciliation of late-2026 market commentary against EIA data ----------
     m = df.loc["2026-09"]
     three21 = ((2 * m["gas_nyh"] + m["dsl_nyh"]) / 3 - m["wti"]).mean()
     last = df.iloc[-1]
-    report["s16"] = {
+    report["reconciliation_2026"] = {
         "sep2026_321_nyh_vs_wti_avg": float(three21),
         "y2025_321_nyh_vs_wti_avg": float(((2 * df.loc["2025", "gas_nyh"] + df.loc["2025", "dsl_nyh"]) / 3 - df.loc["2025", "wti"]).mean()),
         "last_date": str(df.index[-1].date()),

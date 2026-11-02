@@ -47,13 +47,15 @@ packages/engine/   pure TypeScript simulation engine (no runtime dependencies, n
   world/           hubs, vessels, chokepoints, routes, price graph
   market/          regime, Brent, cracks, regional spreads, curves, freight
   book/            deals, cargoes, voyages, futures, valuation, attribution
+  blending/        gasoline blending specs and a small simplex LP solver
   events/          macro events (hurricanes, outages, export bans, chokepoints, black swans)
-  agents/          counterparties and deal flow
+  agents/          counterparties, deal flow, negotiation, tenders
+  params/          model parameters, generated markets, historical episodes, assumptions sheet
   game.ts          game loop and actions
 packages/cli/      terminal interface
 apps/web/          browser interface (Vite + React)
 calibration/       Python: fetch public data, fit parameters -> params/*.json
-params/            fitted parameters with provenance (no raw data)
+params/            fitted parameters with provenance, EIA replay series, sea-route geometry
 ```
 
 ## Market model
@@ -74,7 +76,7 @@ futures(k)      = hub price − curve spread(p) · g(months to expiry)
 
 ## Data and licensing
 
-Calibration uses public-domain U.S. EIA data (daily spot prices via FRED, weekly stocks via the EIA API), NOAA HURDAT2 and searoute (Apache-2.0) sea distances. Raw downloads stay local in `data/raw/` (gitignored). Only fitted parameters are committed, each carrying its source, method and date. Exchange and price-reporting-agency data are not redistributed. Every number is labelled `data`, `derived` or `estimate`, and the assumptions sheet lists them all.
+Calibration uses public-domain data: U.S. EIA daily spot prices (via FRED) and weekly stocks and refinery utilisation (via the EIA API), NOAA HURDAT2 hurricane tracks, and sea distances computed with searoute (Apache-2.0). Raw downloads stay local in `data/raw/` (gitignored). The repository holds only fitted parameters, the daily EIA series needed for the historical replays, and computed route geometry. Exchange and price-reporting-agency data are never redistributed. Every number is labelled `data`, `derived` or `estimate` with its source and method; the assumptions sheet lists them all. See [DATA_SOURCES.md](DATA_SOURCES.md) for attributions.
 
 To refresh calibration, replay episodes and map geometry (requires `uv`, plus a free `EIA_API_KEY` for the weekly series):
 
@@ -82,4 +84,14 @@ To refresh calibration, replay episodes and map geometry (requires `uv`, plus a 
 cd calibration && uv run python fetch.py && uv run python fit.py && uv run python replay.py && uv run python geo.py
 ```
 
-Map land shapes come from Natural Earth (public domain) via the `world-atlas` package.
+## Status
+
+The engine, the web app and the CLI cover physical trading, shipping, diversions, storage, blending, hedging, regional fundamentals, counterparties and full P&L attribution, in generated markets and eight historical replays. Tests check accounting identities, determinism across JavaScript engines, stylized facts against history, and event propagation. Many parameters (counterparty behaviour, blending component prices, event magnitudes, freight positioning) are informed estimates awaiting review by practitioners. Comments and corrections are welcome.
+
+## Disclaimer
+
+Laycan is an educational simulation. Its prices are modelled, not forecasts or market data, and nothing in it is investment advice. Counterparties are fictional. Historical replays follow real US benchmark prices but model everything else; scripted headlines summarise public reporting and some dates are approximate.
+
+## License
+
+Code: [MIT](LICENSE). Data attributions: [DATA_SOURCES.md](DATA_SOURCES.md).

@@ -116,7 +116,7 @@ export const MODEL = {
       war: {
         brent: est(3.0, "$/bbl/month", "spot Brent $123 vs Jan futures ~$113 (late Oct 2026)"),
         gasoline: est(1.5, "$/bbl/month", "model design"),
-        diesel: derived(6.5, "$/bbl/month", "ICE Gasoil futures curve, 30 Oct 2026 (private calibration; exchange data not redistributed)", "front-month spreads ~$48-53/t ≈ $6.5-7/bbl"),
+        diesel: derived(6.5, "$/bbl/month", "ICE Gasoil futures curve observations, late Oct 2026 (used for calibration only; exchange data not redistributed)", "front-month spreads ~$48-53/t ≈ $6.5-7/bbl"),
         jet: est(5.0, "$/bbl/month", "assumed slightly below diesel"),
       },
     } as Record<Regime, Record<"brent" | ProductId, Param>>,
