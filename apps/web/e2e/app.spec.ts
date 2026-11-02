@@ -100,3 +100,15 @@ test("negotiation, counterparties and fundamentals views", async ({ page }) => {
   await page.getByTestId("market-fundamentals").click();
   await expect(page.getByRole("table", { name: "Regional fundamentals" })).toContainText("EU");
 });
+
+test("the manual opens in the app and its contents links work; Japan is on the map", async ({ page }) => {
+  await page.goto("/?seed=e2e-6");
+  await page.getByTestId("start-manual").click();
+  const manual = page.getByRole("dialog", { name: "Manual" });
+  await expect(manual).toContainText("Laycan — game manual");
+  await manual.getByRole("link", { name: "Blending" }).first().click();
+  await expect(manual.locator('[id="12-blending"]')).toBeInViewport();
+  await manual.getByRole("button", { name: "Close" }).click();
+  await page.getByTestId("start").click();
+  await expect(page.getByTestId("hub-JPN")).toBeVisible();
+});

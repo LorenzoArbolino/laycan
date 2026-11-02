@@ -71,7 +71,7 @@ describe("sanity scenarios", () => {
   it("demurrage accrues when port time exceeds laytime", () => {
     const g = Game.create({ scenario: "normal_2025", seed: "dem" });
     const o = g.state.offers.find((x) => x.playerSide === "buy" && x.incoterm === "FOB" && x.hub === "USGC") ?? g.state.offers.find((x) => x.playerSide === "buy" && x.incoterm === "FOB")!;
-    const route = { USGC: "TC14", ARA: "TC2", WAF: "WAF-ARA", MEG: "TC8", FUJ: "FUJ-ARA", SIN: "TC2", NYH: "TC2" }[o.hub];
+    const route = { USGC: "TC14", ARA: "TC2", WAF: "WAF-ARA", MEG: "TC8", FUJ: "FUJ-ARA", SIN: "TC2", NYH: "TC2", JPN: "JPN-SIN" }[o.hub];
     g.act({ type: "accept", offerId: o.id, charter: { routeId: route } });
     const v = g.book.voyages[0]!;
     v.draws.loadDelay = 3;

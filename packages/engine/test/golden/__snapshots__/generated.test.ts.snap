@@ -3,15 +3,15 @@
 exports[`golden runs (generated and replay) > covid_2020 1`] = `
 {
   "brent": 42.73,
-  "equity": 50641410,
+  "equity": 51847845,
   "start": "2 Mar 2020",
 }
 `;
 
 exports[`golden runs (generated and replay) > generated 1`] = `
 {
-  "brent": 146.35,
-  "equity": -125134706,
+  "brent": 70.4,
+  "equity": 49628067,
   "start": "3 Nov, Year 1",
 }
 `;

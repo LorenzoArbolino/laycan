@@ -30,19 +30,20 @@ const projection = geoNaturalEarth1().fitExtent(
     [6, 6],
     [W - 6, H - 6],
   ],
-  { type: "MultiPoint", coordinates: [[-100, 55], [118, 55], [-100, -36], [118, -36]] },
+  { type: "MultiPoint", coordinates: [[-100, 55], [146, 55], [-100, -36], [146, -36]] },
 );
 const path = geoPath(projection);
 const pt = (c: [number, number]) => projection(c) ?? [0, 0];
 
 const LABEL_OFFSET: Record<HubId, [number, number, "start" | "end"]> = {
-  USGC: [-8, 16, "end"],
+  USGC: [10, 16, "start"],
   NYH: [8, -8, "start"],
   ARA: [8, -8, "start"],
   WAF: [8, 14, "start"],
   MEG: [-8, -10, "end"],
   FUJ: [8, 16, "start"],
   SIN: [-8, 16, "end"],
+  JPN: [-10, 18, "end"],
 };
 
 export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: HubId | null) => void; selectedHub: HubId | null }) {
@@ -151,6 +152,17 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
                   <title>{`${HUB_REGION[h]} ${product} stocks ${m.stocks[HUB_REGION[h]][product] >= 0 ? "+" : ""}${m.stocks[HUB_REGION[h]][product].toFixed(1)}% vs normal`}</title>
                 </circle>
               )}
+              {/* invisible hit area spanning marker and label, so the whole hub is clickable */}
+              {(() => {
+                const w = 8.6 * `${h} ${price.toFixed(1)}${h !== "USGC" ? ` (${diff >= 0 ? "+" : ""}${diff.toFixed(1)})` : ""}`.length;
+                const lx0 = anchor === "start" ? x + dx - 2 : x + dx - w - 2;
+                const lx1 = anchor === "start" ? x + dx + w + 2 : x + dx + 2;
+                const x0 = Math.min(x - 16, lx0);
+                const x1 = Math.max(x + 16, lx1);
+                const y0 = Math.min(y - 16, y + dy - 15);
+                const y1 = Math.max(y + 16, y + dy + (t ? 18 : 6));
+                return <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="transparent" />;
+              })()}
               <circle cx={x} cy={y} r={sel ? 9 : 7} fill={sel ? "var(--accent)" : "#fff"} stroke="var(--accent)" strokeWidth={2.5} />
               <text x={x + dx} y={y + dy} textAnchor={anchor} className="hub-label">
                 <tspan fontWeight={700}>{h}</tspan> <tspan className="num">{price.toFixed(1)}</tspan>

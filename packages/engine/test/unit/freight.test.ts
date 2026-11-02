@@ -10,7 +10,7 @@ const m = initMarket(sc, cfg, parseDate(sc.startDate));
 const f = freightInputs(m, cfg);
 
 // Optima Shipbroking clean tanker summary, 19-20 Oct 2026 (public): $/t on Baltic route definitions
-const reported: Record<string, number> = { TC2: 29.12, TC14: 86.78 * (38 / 37), TC19: 53.85, TC8: 245.17 };
+const reported: Record<string, number> = { TC2: 29.12, TC14: 86.78 * (38 / 37), TC19: 53.85, TC8: 245.17, TC1: 219.76 };
 
 describe("bottom-up freight reproduces reported route rates", () => {
   for (const [route, rate] of Object.entries(reported)) {

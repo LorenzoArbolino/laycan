@@ -170,3 +170,17 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 12px; }
 .btn.sell { background: var(--neg); border-color: var(--neg); color: #fff; }
 .carry td.pos, .carry td.neg { font-weight: 600; }
 .filter-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 10px; font-size: 12px; margin-bottom: 8px; }
+
+.manual { max-width: 900px; }
+.manual-body { font-size: 14px; line-height: 1.6; color: var(--ink); }
+.manual-body h1 { font-size: 24px; margin: 8px 0 12px; color: var(--accent); }
+.manual-body h2 { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 28px 0 8px; }
+.manual-body h3 { font-size: 15px; margin: 18px 0 6px; }
+.manual-body p, .manual-body li { max-width: 75ch; }
+.manual-body table { margin: 8px 0 12px; }
+.manual-body td, .manual-body th { white-space: normal; text-align: left; vertical-align: top; }
+.manual-body code { font-family: var(--mono); font-size: 12.5px; background: var(--bg); padding: 1px 4px; border-radius: 4px; }
+.manual-body pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+.manual-body pre code { background: none; padding: 0; }
+.manual-body hr { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
+.manual-body a { color: var(--accent); }

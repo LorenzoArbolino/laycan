@@ -150,6 +150,7 @@ export const MODEL = {
       MEG: est(0.7, "$/bbl/month", "limited independent tankage"),
       FUJ: est(0.6, "$/bbl/month", "Fujairah storage, order of magnitude"),
       SIN: est(0.5, "$/bbl/month", "Singapore storage, order of magnitude"),
+      JPN: est(0.6, "$/bbl/month", "Japanese terminal storage, order of magnitude"),
     } as Record<HubId, Param>,
     contangoPremium: est(0.25, "share of contango", "storage rents rise when contango makes storage valuable", "lease fee × (1 + 0.25 × contango in $/bbl/month)"),
     spotMultiplier: est(1.6, "x", "short-term spot tankage costs more than a term lease"),
@@ -171,6 +172,9 @@ export const ROUTE_MULT_NORMAL: RouteMult = {
   "FUJ-SIN": est(0.9, "x", "model design"),
   "USGC-NYH": est(1.8, "x", "Jones Act premium for US-flag tonnage"),
   "USGC-WAF": est(1.0, "x", "model design"),
+  TC1: est(1.0, "x", "definition (the LR2 index is TC1-type)"),
+  "JPN-SIN": est(0.9, "x", "model design: intra-Asia MR trade"),
+  "SIN-JPN": est(0.9, "x", "model design: intra-Asia MR trade"),
 };
 
 export const ROUTE_MULT_NOW: RouteMult = {
@@ -184,6 +188,9 @@ export const ROUTE_MULT_NOW: RouteMult = {
   "FUJ-SIN": est(0.7, "x", "assumed: outside-Hormuz loading avoids the war premium on tonnage"),
   "USGC-NYH": est(1.5, "x", "Jones Act premium"),
   "USGC-WAF": est(0.7, "x", "assumed"),
+  TC1: { value: 1.0, unit: "x", label: "data", source: "Optima Shipbroking, TC1 TCE ~$282k/day, 19 Oct 2026, which sets the LR2 index", method: "definition", date: "2026-10-20" },
+  "JPN-SIN": est(0.5, "x", "assumed: intra-Asia MR rates well below the war-inflated East-of-Suez LR market"),
+  "SIN-JPN": est(0.5, "x", "assumed: intra-Asia MR rates well below the war-inflated East-of-Suez LR market"),
 };
 
 export type ScenarioKind = "generated" | "historical" | "snapshot";

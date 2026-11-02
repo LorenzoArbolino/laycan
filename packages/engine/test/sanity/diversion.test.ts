@@ -4,8 +4,9 @@ import { voyagePosition } from "../../src/world/geo";
 
 function ladenTC14(seed: string) {
   const g = Game.create({ scenario: "normal_2025", seed });
-  const o = g.state.offers.find((x) => x.playerSide === "buy" && x.incoterm === "FOB" && x.hub === "USGC")!;
-  g.act({ type: "accept", offerId: o.id, charter: { routeId: "TC14" } });
+  // ask for a US Gulf FOB diesel cargo rather than relying on the week's random offers
+  const q = g.act({ type: "quote", side: "buy", product: "diesel", hub: "USGC", incoterm: "FOB" });
+  g.act({ type: "accept", offerId: q.id!, charter: { routeId: "TC14" } });
   const v = g.book.voyages[0]!;
   while (v.status !== "sailing") g.stepDay();
   g.stepDay();

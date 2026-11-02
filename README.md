@@ -1,8 +1,10 @@
 # Laycan
 
-A physical refined-products trading simulator. You run a book of gasoline, diesel and jet cargoes moving between real hubs (US Gulf, New York Harbor, ARA, West Africa, Middle East Gulf, Fujairah, Singapore). You buy and sell cargoes, charter tankers, hedge with futures and live with what really decides P&L on a physical desk: freight, timing, pricing windows, quality, contract optionality, financing and things going wrong.
+A physical refined-products trading simulator. You run a book of gasoline, diesel and jet cargoes moving between eight real hubs (US Gulf, New York Harbor, ARA, West Africa, Middle East Gulf, Fujairah, Singapore, Japan). You buy and sell cargoes, charter tankers, hedge with futures and live with what really decides P&L on a physical desk: freight, timing, pricing windows, quality, contract optionality, financing and things going wrong.
 
 Every dollar of P&L is attributed to flat price, crack, regional arbitrage, time spread and carry, quality, freight, optionality, deal edge, events and finance. Attribution is the main output.
+
+**Play:** https://lorenzoarbolino.github.io/laycan/ · **Manual:** [docs/MANUAL.md](docs/MANUAL.md) (also inside the game)
 
 ## Game modes
 
@@ -16,12 +18,12 @@ Games are seeded and deterministic: the same seed and actions give identical res
 ## What you can do
 
 - **Trade cargoes:** buy FOB, CIF/DES delivered or in-tank (ITT); sell delivered, FOB or in-tank; ask the market for quotes.
-- **Ship:** charter MR/LR1/LR2 tankers on ten routes (Suez or Cape variants) and see each arb at today's prices.
+- **Ship:** charter MR/LR1/LR2 tankers on thirteen routes (Suez or Cape variants) and see each arb at today's prices.
 - **Divert:** re-route a laden ship to another hub when a better market opens. You pay the deviation, and the destination option shows up in the attribution.
 - **Blend:** mix butane, naphtha, isomerate, reformate, FCC gasoline, alkylate and ethanol in your tank to make EN 228 or US regular gasoline. Specs cover octane, vapour pressure (seasonal), sulphur, aromatics, olefins, benzene and oxygen; a linear-program optimiser shows the cheapest on-spec recipe to beat.
 - **Store:** lease tank capacity (take-or-pay, dearer in contango), hold inventory, sell spot, and compare contango against rent plus financing.
 - **Negotiate:** counter any offer; each counterparty has a hidden reservation price and its own patience. Bid in national-oil-company tenders against sealed competing bids.
-- **Choose counterparties:** eleven fictional firms (majors, national oil companies, refiners, traders, end users) with credit ratings, reliability and home markets. Relationships remember whether you lift, deliver and pay.
+- **Choose counterparties:** twelve fictional firms (majors, national oil companies, refiners, traders, end users) with credit ratings, reliability and home markets. Relationships remember whether you lift, deliver and pay.
 - **Hedge:** RBOB, NY Harbor ULSD, ICE Gasoil and Brent futures with daily variation margin.
 - **Watch the world map:** hubs with live prices, sea routes coloured by whether the arb is open, chokepoint states, your ships along their routes, and tank inventories.
 
@@ -33,6 +35,7 @@ npm test                 # unit, property, stylized-fact, sanity and golden test
 npm run dev              # web app (http://localhost:5173)
 npm run build            # static build in apps/web/dist, deployable to any static host
 npm run e2e              # browser end-to-end tests (Playwright, Chromium)
+                         # every push to main also deploys the web app to GitHub Pages
 npm run play -- --seed 42 --weeks 26            # command-line game (generated market)
 npm run play -- --scenario covid_2020 --seed 42  # a historical replay
 npx tsx packages/cli/src/main.ts list            # all modes and episodes
@@ -71,7 +74,7 @@ futures(k)      = hub price − curve spread(p) · g(months to expiry)
 - **Cracks:** seasonal Ornstein–Uhlenbeck processes with regime-dependent means, correlated multivariate-t shocks, and common jumps.
 - **Regional diffs:** each hub is anchored to another through a shipping route. Importing hubs sit near anchor + freight and exporting hubs near anchor − freight. Once the arbitrage opens, mean reversion strengthens. If the route is blocked, the hub decouples: exporters face a glut, importers a shortage.
 - **Fundamentals:** regional refinery runs and stocks (US, Europe, West Africa, Middle East, Asia) against their 5-year normals. Outages cut runs and drain stocks over weeks. Low stocks lift cracks (slopes fitted to EIA data), raise a region's premium, steepen backwardation and pull in cargoes; arbitrage flows refill short regions. Counterparties offer from long regions and bid in short ones. In replays, US runs and stocks are the real weekly EIA data.
-- **Freight:** built bottom-up from time-charter earnings, distance, speed, bunkers, port and canal costs, plus war-risk premiums. Reproduces published route rates for TC2, TC8, TC14 and TC19 within 10%.
+- **Freight:** built bottom-up from time-charter earnings, distance, speed, bunkers, port and canal costs, plus war-risk premiums. Reproduces published route rates for TC1, TC2, TC8, TC14 and TC19 within 7%.
 - **Chokepoints:** Hormuz, Bab-el-Mandeb and Suez, each open, restricted or closed. Restricted means premiums, delays and incident risk. Closed means rerouting or stranded cargoes.
 
 ## Data and licensing

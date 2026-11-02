@@ -6,6 +6,7 @@ import { BookPanel } from "./components/BookPanel";
 import { PnlPanel } from "./components/PnlPanel";
 import { WorldMap } from "./components/WorldMap";
 import { CounterpartiesPanel } from "./components/Counterparties";
+import { Manual } from "./components/Manual";
 import { cls, money } from "./format";
 
 const SAVE_KEY = "laycan-save-v1";
@@ -35,7 +36,7 @@ function seedFromUrl(): string | null {
   }
 }
 
-function StartScreen({ onStart, resume }: { onStart: (scenario: string, seed: string, weeks?: number) => void; resume: Game | null }) {
+function StartScreen({ onStart, resume, onManual }: { onStart: (scenario: string, seed: string, weeks?: number) => void; resume: Game | null; onManual: () => void }) {
   const [scenario, setScenario] = useState("generated");
   const [weeks, setWeeks] = useState(12);
   const episode = EPISODES.find((e) => e.id === scenario);
@@ -87,6 +88,9 @@ function StartScreen({ onStart, resume }: { onStart: (scenario: string, seed: st
             </select>
           </label>
         )}
+        <button className="btn" onClick={onManual} data-testid="start-manual">
+          Read the manual
+        </button>
         <button className="btn primary" onClick={() => onStart(scenario, seed, scenario === "generated" ? weeks : undefined)} data-testid="start">
           Start {episodeWeeks}-week game
         </button>
@@ -195,6 +199,7 @@ export function App() {
   const [hub, setHub] = useState<HubId | null>(null);
   const [toast, setToast] = useState<{ text: string; err: boolean } | null>(null);
   const [showAssumptions, setShowAssumptions] = useState(false);
+  const [showManual, setShowManual] = useState(false);
   const [busy, setBusy] = useState(false);
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -234,7 +239,13 @@ export function App() {
     }, 0);
   };
 
-  if (!g) return <StartScreen onStart={start} resume={saved} />;
+  if (!g)
+    return (
+      <>
+        <StartScreen onStart={start} resume={saved} onManual={() => setShowManual(true)} />
+        {showManual && <Manual onClose={() => setShowManual(false)} />}
+      </>
+    );
 
   const s = g.score();
   const totalWeeks = Math.round((g.state.endDay - g.state.startDay) / 7);
@@ -279,6 +290,9 @@ export function App() {
           <span className={`badge ${g.market.regime}`}>{g.market.regime}</span>
         </div>
         <div className="spacer" />
+        <button className="btn small" onClick={() => setShowManual(true)} data-testid="manual">
+          Manual
+        </button>
         <button className="btn small" onClick={() => setShowAssumptions(true)}>
           Assumptions
         </button>
@@ -335,6 +349,7 @@ export function App() {
       </main>
       {toast && <div className={`toast ${toast.err ? "err" : ""}`}>{toast.text}</div>}
       {showAssumptions && <Assumptions onClose={() => setShowAssumptions(false)} />}
+      {showManual && <Manual onClose={() => setShowManual(false)} />}
     </div>
   );
 }

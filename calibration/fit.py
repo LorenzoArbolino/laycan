@@ -465,7 +465,7 @@ def main() -> None:
         import searoute as sr
         ports = {
             "USGC": [-94.9, 29.3], "NYH": [-74.05, 40.6], "ARA": [4.0, 51.95], "WAF": [3.35, 6.4],
-            "MEG": [50.2, 26.7], "FUJ": [56.4, 25.15], "SIN": [103.8, 1.2],
+            "MEG": [50.2, 26.7], "FUJ": [56.4, 25.15], "SIN": [103.8, 1.2], "JPN": [139.85, 35.45],
         }
         legs = {
             "ARA-NYH": ("ARA", "NYH", []), "USGC-ARA": ("USGC", "ARA", []), "ARA-WAF": ("ARA", "WAF", []),
@@ -473,6 +473,7 @@ def main() -> None:
             "FUJ-ARA-suez": ("FUJ", "ARA", []), "FUJ-ARA-cape": ("FUJ", "ARA", ["suez", "babalmandab"]),
             "MEG-SIN": ("MEG", "SIN", []), "FUJ-SIN": ("FUJ", "SIN", []), "USGC-NYH": ("USGC", "NYH", []),
             "MEG-FUJ": ("MEG", "FUJ", []), "USGC-WAF": ("USGC", "WAF", []), "SIN-ARA-suez": ("SIN", "ARA", []),
+            "MEG-JPN": ("MEG", "JPN", []), "JPN-SIN": ("JPN", "SIN", []), "SIN-JPN": ("SIN", "JPN", []),
         }
         dist = {}
         for k, (a, b, restr) in legs.items():

@@ -11,7 +11,7 @@ import searoute as sr
 ROOT = Path(__file__).resolve().parent.parent
 PORTS = {
     "USGC": [-94.9, 29.3], "NYH": [-74.05, 40.6], "ARA": [4.0, 51.95], "WAF": [3.35, 6.4],
-    "MEG": [50.2, 26.7], "FUJ": [56.4, 25.15], "SIN": [103.8, 1.2],
+    "MEG": [50.2, 26.7], "FUJ": [56.4, 25.15], "SIN": [103.8, 1.2], "JPN": [139.85, 35.45],
 }
 VARIANTS = {
     "TC2:direct": ("ARA", "NYH", []), "TC14:direct": ("USGC", "ARA", []), "TC19:direct": ("ARA", "WAF", []),
@@ -19,6 +19,7 @@ VARIANTS = {
     "FUJ-ARA:suez": ("FUJ", "ARA", []), "FUJ-ARA:cape": ("FUJ", "ARA", ["suez", "babalmandab"]),
     "MEG-SIN:direct": ("MEG", "SIN", []), "FUJ-SIN:direct": ("FUJ", "SIN", []), "USGC-NYH:direct": ("USGC", "NYH", []),
     "USGC-WAF:direct": ("USGC", "WAF", []),
+    "TC1:direct": ("MEG", "JPN", []), "JPN-SIN:direct": ("JPN", "SIN", []), "SIN-JPN:direct": ("SIN", "JPN", []),
 }
 
 

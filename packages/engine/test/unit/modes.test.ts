@@ -60,7 +60,7 @@ describe("ship positions for the map", () => {
     const g = Game.create({ scenario: "normal_2025", seed: "ship" });
     const o = g.state.offers.find((x) => x.playerSide === "buy" && x.incoterm === "FOB" && x.hub === "USGC");
     const offer = o ?? g.state.offers.find((x) => x.playerSide === "buy" && x.incoterm === "FOB")!;
-    const route = { USGC: "TC14", ARA: "TC2", WAF: "WAF-ARA", MEG: "TC8", FUJ: "FUJ-ARA", SIN: "TC2", NYH: "TC2" }[offer.hub];
+    const route = { USGC: "TC14", ARA: "TC2", WAF: "WAF-ARA", MEG: "TC8", FUJ: "FUJ-ARA", SIN: "TC2", NYH: "TC2", JPN: "JPN-SIN" }[offer.hub];
     g.act({ type: "accept", offerId: offer.id, charter: { routeId: route } });
     const v = g.book.voyages[0]!;
     const seen: number[] = [];

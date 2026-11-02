@@ -6,14 +6,14 @@ import calibration from "../../../../params/calibration.json" with { type: "json
 import { est, type Param } from "../params/param";
 import type { ProductId } from "../core/units";
 
-export type HubId = "USGC" | "NYH" | "ARA" | "WAF" | "MEG" | "FUJ" | "SIN";
-export const HUBS: readonly HubId[] = ["USGC", "NYH", "ARA", "WAF", "MEG", "FUJ", "SIN"];
+export type HubId = "USGC" | "NYH" | "ARA" | "WAF" | "MEG" | "FUJ" | "SIN" | "JPN";
+export const HUBS: readonly HubId[] = ["USGC", "NYH", "ARA", "WAF", "MEG", "FUJ", "SIN", "JPN"];
 
 /** Balance regions for the fundamentals layer. */
 export type RegionId = "US" | "EU" | "WAF" | "ME" | "ASIA";
 export const REGIONS: readonly RegionId[] = ["US", "EU", "WAF", "ME", "ASIA"];
 export const REGION_NAME: Record<RegionId, string> = { US: "United States", EU: "Northwest Europe", WAF: "West Africa", ME: "Middle East", ASIA: "Asia" };
-export const HUB_REGION: Record<HubId, RegionId> = { USGC: "US", NYH: "US", ARA: "EU", WAF: "WAF", MEG: "ME", FUJ: "ME", SIN: "ASIA" };
+export const HUB_REGION: Record<HubId, RegionId> = { USGC: "US", NYH: "US", ARA: "EU", WAF: "WAF", MEG: "ME", FUJ: "ME", SIN: "ASIA", JPN: "ASIA" };
 
 export interface Hub {
   id: HubId;
@@ -32,6 +32,7 @@ export const HUB_INFO: Record<HubId, Hub> = {
   MEG: { id: "MEG", name: "Middle East Gulf (inside Hormuz)", region: "Middle East", coords: [50.2, 26.7], role: "Large export refineries; diesel and jet to Europe and Asia. Exits through Hormuz." },
   FUJ: { id: "FUJ", name: "Fujairah (outside Hormuz)", region: "Middle East", coords: [56.4, 25.15], role: "Storage, bunkering and ship-to-ship hub on the Gulf of Oman side." },
   SIN: { id: "SIN", name: "Singapore", region: "Asia", coords: [103.8, 1.2], role: "Asian hub and price reference." },
+  JPN: { id: "JPN", name: "Japan (Tokyo Bay)", region: "Asia", coords: [139.85, 35.45], role: "Large, ageing refining base with shrinking domestic demand: exports diesel and jet, imports some gasoline and Middle East barrels." },
 };
 
 export type VesselClass = "MR" | "LR1" | "LR2";
@@ -185,6 +186,9 @@ export const ROUTES: readonly RouteDef[] = [
   { id: "FUJ-SIN", from: "FUJ", to: "SIN", cls: "LR1", analogue: "Fujairah → Singapore", variants: [{ via: "direct", distanceNm: dist("FUJ-SIN"), chokepoints: [] }], note: "Outside Hormuz → Asia" },
   { id: "USGC-NYH", from: "USGC", to: "NYH", cls: "MR", analogue: "Jones Act (US-flag) coastwise voyage", variants: [{ via: "direct", distanceNm: dist("USGC-NYH"), chokepoints: [] }], note: "Requires a US-flag vessel: expensive" },
   { id: "USGC-WAF", from: "USGC", to: "WAF", cls: "MR", analogue: "US Gulf → West Africa", variants: [{ via: "direct", distanceNm: dist("USGC-WAF"), chokepoints: [] }], note: "US gasoline to West Africa" },
+  { id: "TC1", from: "MEG", to: "JPN", cls: "LR2", analogue: "Baltic TC1 (Middle East Gulf → Japan, 75 kt)", variants: [{ via: "direct", distanceNm: dist("MEG-JPN"), chokepoints: ["hormuz"] }], note: "Middle East → Japan" },
+  { id: "JPN-SIN", from: "JPN", to: "SIN", cls: "MR", analogue: "Japan → Singapore", variants: [{ via: "direct", distanceNm: dist("JPN-SIN"), chokepoints: [] }], note: "Japanese diesel and jet exports" },
+  { id: "SIN-JPN", from: "SIN", to: "JPN", cls: "MR", analogue: "Singapore → Japan", variants: [{ via: "direct", distanceNm: dist("SIN-JPN"), chokepoints: [] }], note: "Gasoline into Japan" },
 ];
 
 export function routeById(id: string): RouteDef {
@@ -233,6 +237,10 @@ export const PRICE_GRAPH: readonly Anchor[] = [
   { hub: "SIN", product: "gasoline", anchor: "USGC", route: null, dir: "import" },
   { hub: "MEG", product: "gasoline", anchor: "SIN", route: "MEG-SIN", dir: "export" },
   { hub: "FUJ", product: "gasoline", anchor: "SIN", route: "FUJ-SIN", dir: "export" },
+  // Japan: long middle distillates (exports to Singapore), short gasoline at the margin
+  { hub: "JPN", product: "diesel", anchor: "SIN", route: "JPN-SIN", dir: "export" },
+  { hub: "JPN", product: "jet", anchor: "SIN", route: "JPN-SIN", dir: "export" },
+  { hub: "JPN", product: "gasoline", anchor: "SIN", route: "SIN-JPN", dir: "import" },
 ];
 
 export function anchorOf(hub: HubId, product: ProductId): Anchor | undefined {
