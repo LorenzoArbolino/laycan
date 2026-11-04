@@ -106,12 +106,17 @@ Every price in Laycan is built from additive pieces, in dollars per barrel:
 
 ```
 hub price  =  Brent  +  crack (product margin at the US Gulf)  +  regional differential (hub vs US Gulf)
-futures    =  hub price  −  curve spread × (months to expiry, with decay)
+forward    =  expected hub price on a future day (the curve)
+futures    =  forward for the contract's expiry day
 ```
 
-**Brent** is the crude anchor. Its volatility clusters (calm periods and turbulent ones), its shocks have fat tails, and it is pulled slowly towards a level that depends on the regime.
+**Brent** is the crude anchor. Its volatility clusters (calm periods and turbulent ones), its shocks have fat tails, and it is pulled slowly (half-life about five months) towards a level that depends on the regime: $75 normal, $60 stressed, $110 war. That level is the long-run *average* price in the regime.
 
-**Cracks** are product margins over crude: what a refiner earns by turning a barrel of Brent into gasoline, diesel or jet. They revert to a regime-dependent mean (gasoline in a week or two, diesel more slowly), are seasonal (gasoline stronger in summer), jump together on shocks such as hurricanes, and respond to inventories: when stocks are low, cracks rise.
+**Cracks** are product margins over crude: what a refiner earns by turning a barrel of Brent into gasoline, diesel or jet. Each crack has two speeds, as in the historical data:
+- a *physical basis* that clears within one to two weeks (a prompt squeeze, a hurricane spike, a glut of cargoes): about a third to a half of the day-to-day variation;
+- a *fundamental level* that moves over months towards the regime's mean (half-lives of three to ten months in normal markets, about two months after a regime change).
+
+On top of these sit the season (gasoline stronger in summer), the US inventory effect (low stocks, higher cracks) and decaying shifts from events such as refinery outages.
 
 **Regional differentials** are where most physical money is made and lost. Each hub is tied to another hub by a shipping route:
 - An *importing* hub trades near the anchor price **plus** freight (it must attract cargoes).
@@ -120,7 +125,13 @@ futures    =  hub price  −  curve spread × (months to expiry, with decay)
 - When the spread exceeds freight plus costs, cargoes flow and the gap closes within days.
 - If a route is blocked (a chokepoint closed), the hub decouples: exporters face a glut and fall, importers face a shortage and rise. A spread can look wide open on paper and be impossible to trade.
 
-**Curves.** The front-month spread is positive in *backwardation* (prompt barrels dearer, typical when stocks are low) and negative in *contango* (prompt barrels cheaper, typical when stocks are high). Futures converge to spot at expiry.
+**Curves.** A forward price is the market's expectation of the spot price on that day, worked out from the same model that moves spot: the regime may change (a war is expected to end, a crash to recover), Brent reverts to its level, a physical basis fades within days, the fundamental part of each crack drifts back to its mean, stocks refill or drain, the season turns, event shocks decay, and hub differentials return to freight parity. So:
+- *Backwardation* (later prices lower) means prices are expected to fall: typical when stocks are low, in a squeeze, or at war.
+- *Contango* (later prices higher) means prices are expected to rise: typical in a glut or a crash.
+- Futures converge to spot at expiry.
+- **The curve is a fair forecast.** Rolling futures earns nothing on average, in any regime. There is no risk premium to harvest: money is made by knowing more than the curve (fundamentals, events, counterparties, logistics), not by owning backwardation.
+
+**How your positions are valued.** Everything is marked on the curve for the date that matters: a floating deal's unpriced days at the forward for each pricing day, an open deal at the forward for its delivery date, a cargo at sea at its destination's forward for the arrival date, futures at the forward for their expiry. Product in tank is marked at today's spot. A cargo at sea in a backwardated market is therefore worth less than spot at its destination, and its value rises towards spot as it approaches, if the market stays where it is.
 
 **Regimes.** The market switches between *normal*, *stressed* (crises with demand collapse and contango) and *war* (high volatility, wide spreads, backwardation, expensive freight). Margins, spreads, freight and counterparty credit all change with the regime.
 
@@ -385,7 +396,8 @@ How to hedge well:
 - Sell futures against barrels you own or have bought at a fixed or already-fixed price. Buy futures against fixed-price sales.
 - Hedge what is *priced*, not what is *bought*. Check the Exposure table first.
 - Hedge with the contract that follows the market you are exposed to: ARA diesel with GO, New York with HO and RB. The leftover risk between your hub and the contract's hub is *basis*.
-- In backwardation, a short hedge loses as futures roll up towards spot. That cost appears in the time-spread bucket.
+- Hedge in the month that matches when your barrels price or are delivered. Your physical marks sit on the same curve, so a well-matched hedge leaves little time-spread risk.
+- In backwardation, inventory in tank is expected to lose value as spot falls towards the curve. Selling it forward (futures, or a fixed-price sale) locks the curve in; the futures themselves earn nothing on average.
 
 ---
 
@@ -433,7 +445,7 @@ Every day, the change in your equity is split exactly into buckets, each shown f
 | Flat price | Brent moves on your net exposure | You hold an unhedged cargo; Brent falls $5 |
 | Crack | Product margin moves | Diesel crack rises while you are long diesel |
 | Regional / arb | Location spreads, including the arbitrage captured when a cargo is loaded for a dearer destination | US Gulf diesel loaded for ARA, worth $9/bbl more there |
-| Time spread & carry | Curve moves, futures rolling towards expiry, storage rent | A short hedge in backwardation rolls up |
+| Time spread & carry | Changes in curve shape, roll-down of futures and forward-marked cargoes towards delivery, storage rent | A cargo at sea in backwardation rolls up towards spot as it nears arrival |
 | Quality | Off-spec, grade discounts, blending margins | Blended gasoline worth $0.70/bbl more than its components |
 | Freight | Charter costs, war-risk premiums, deviation costs | A $3m TC14 voyage |
 | Optionality | Tolerance choices, pricing windows revealed at loading, diversion gains | Diverting to a hub $2/bbl dearer |
@@ -488,7 +500,8 @@ A modest profit with small drawdowns and no breaches beats a large profit earned
 
 **Common mistakes**
 - Hedging a floating purchase the day you buy it: you are now short until it prices.
-- Running a big short hedge in steep backwardation and forgetting the roll cost.
+- Holding unhedged tank inventory in steep backwardation: spot is expected to fall towards the curve.
+- Shipping on every route every week: shipping whenever a bid exists loses money on average; checking freight, financing, quantities and laycans first earns a modest edge.
 - Selling delivered without a ship or cargo to deliver it.
 - Letting cash fall below the credit line while holding futures: forced liquidation at the worst moment.
 - Buying Gulf cargoes inside Hormuz when the strait is restricted: if it closes, you are stranded.
@@ -559,7 +572,8 @@ npx tsx packages/cli/src/main.ts assumptions      # the assumptions sheet
 
 - Prices outside the US are modelled around freight parity and regional stocks; there is no free daily price data for Europe or Asia. Futures curves are modelled everywhere.
 - You are a price-taker: your trades do not move the market.
-- Each product has one futures curve shape, shared across hubs.
+- Each product has one curve for Brent and the crack, shared across hubs; each hub's differential reverts to its own parity target along it.
+- Curves carry no risk premium, so they are a fair forecast and flatter than real ones in extreme markets. In November 2026 the model's front spreads are about $1.2/bbl/month for Brent and $1.8 for diesel, against roughly $3 and $6.5 observed: real backwardation also pays for the risk of holding inventory, which the game does not reward.
 - Diversions approximate the open-water leg from the ship's position to the new route.
 - Only gasoline can be blended.
 - Many parameters (counterparty behaviour, war-risk premiums, component prices, event sizes, storage rents) are informed estimates. The **Assumptions** sheet lists every number with its label (`data`, `derived` or `estimate`) and its source.

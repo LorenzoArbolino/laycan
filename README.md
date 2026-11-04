@@ -67,13 +67,15 @@ Prices are additive in $/bbl, which makes attribution exact:
 
 ```
 hub price(h, p) = Brent + crack(p, US Gulf) + regional diff(h, p)
-futures(k)      = hub price − curve spread(p) · g(months to expiry)
+forward(h, p, T) = E_t[hub price(h, p) on day T]   (the model's own expectation)
+futures(k)       = forward on the contract's expiry day
 ```
 
-- **Brent:** GARCH(1,1) with Student-t shocks, a regime volatility multiplier, and jumps in stressed and war regimes.
-- **Cracks:** seasonal Ornstein–Uhlenbeck processes with regime-dependent means, correlated multivariate-t shocks, and common jumps.
+- **Brent:** GARCH(1,1) with Student-t shocks, a regime volatility multiplier, and jumps in stressed and war regimes. Log price reverts to a regime level with drift −σ²/4, so the level is the long-run average price.
+- **Cracks:** two speeds, fitted to the autocorrelation of EIA cracks (2010-2019, 2023-2025): a physical basis with a half-life of 5-8 business days and a fundamental part that reverts to the regime mean over 3-10 months. Season, the US stock effect and event shifts are an additive overlay. Correlated multivariate-t shocks, common jumps.
+- **Curves:** forward and futures prices are the conditional expectation of spot under the same model (regime chain, reversion, fading basis, stocks, season, event decay, parity). No risk premium is added, so rolling futures has zero expected P&L in every regime; cargoes, open deals and unpriced pricing days are marked on the curve for their own dates.
 - **Regional diffs:** each hub is anchored to another through a shipping route. Importing hubs sit near anchor + freight and exporting hubs near anchor − freight. Once the arbitrage opens, mean reversion strengthens. If the route is blocked, the hub decouples: exporters face a glut, importers a shortage.
-- **Fundamentals:** regional refinery runs and stocks (US, Europe, West Africa, Middle East, Asia) against their 5-year normals. Outages cut runs and drain stocks over weeks. Low stocks lift cracks (slopes fitted to EIA data), raise a region's premium, steepen backwardation and pull in cargoes; arbitrage flows refill short regions. Counterparties offer from long regions and bid in short ones. In replays, US runs and stocks are the real weekly EIA data.
+- **Fundamentals:** regional refinery runs and stocks (US, Europe, West Africa, Middle East, Asia) against their 5-year normals. Outages cut runs and drain stocks over weeks. Low stocks lift cracks (slopes fitted to EIA data), raise a region's premium, put the curve in backwardation (the stock effect is expected to fade as stocks refill) and pull in cargoes; arbitrage flows move barrels from suppliers to short regions, conserving volume. Counterparties offer from long regions and bid in short ones. In replays, US runs and stocks are the real weekly EIA data.
 - **Freight:** built bottom-up from time-charter earnings, distance, speed, bunkers, port and canal costs, plus war-risk premiums. Reproduces published route rates for TC1, TC2, TC8, TC14 and TC19 within 7%.
 - **Chokepoints:** Hormuz, Bab-el-Mandeb and Suez, each open, restricted or closed. Restricted means premiums, delays and incident risk. Closed means rerouting or stranded cargoes.
 
@@ -89,7 +91,7 @@ cd calibration && uv run python fetch.py && uv run python fit.py && uv run pytho
 
 ## Status
 
-The engine, the web app and the CLI cover physical trading, shipping, diversions, storage, blending, hedging, regional fundamentals, counterparties and full P&L attribution, in generated markets and eight historical replays. Tests check accounting identities, determinism across JavaScript engines, stylized facts against history, and event propagation. Many parameters (counterparty behaviour, blending component prices, event magnitudes, freight positioning) are informed estimates awaiting review by practitioners. Comments and corrections are welcome.
+The engine, the web app and the CLI cover physical trading, shipping, diversions, storage, blending, hedging, regional fundamentals, counterparties and full P&L attribution, in generated markets and eight historical replays. Tests check accounting identities, determinism across JavaScript engines, stylized facts against history (including Brent's average level in each regime and crack autocorrelation from one day to three months), event propagation, and *no free lunch*: rolled futures earn nothing in any regime, random trading and naive shipping lose money, and only a disciplined arbitrage keeps an edge. Many parameters (counterparty behaviour, blending component prices, event magnitudes, freight positioning) are informed estimates awaiting review by practitioners. Comments and corrections are welcome.
 
 ## Disclaimer
 
