@@ -39,65 +39,34 @@ function seedFromUrl(): string | null {
 
 /* ------------------------------------------------------------------ start */
 
+/** First sentence of a teaser: the list stays short; the full text shows on the selected row. */
+const firstSentence = (t: string) => {
+  const i = t.indexOf(". ");
+  return i > 0 ? t.slice(0, i + 1) : t;
+};
+
 function StartScreen({ onStart, resume, onManual }: { onStart: (scenario: string, seed: string, weeks?: number) => void; resume: Game | null; onManual: () => void }) {
   const [scenario, setScenario] = useState("generated");
   // weeks = 0: unlimited (generated markets only)
   const [weeks, setWeeks] = useState(0);
   const [seed, setSeed] = useState(seedFromUrl() ?? String(Math.floor(Math.random() * 1e6)));
   const episodeWeeks = scenario === "generated" ? weeks : Game.scenarioFor(scenario, "x").weeks;
-  const row = (id: string, name: string, starts: string, length: string, what: string) => (
-    <tr
-      key={id}
-      className={`click ${scenario === id ? "sel" : ""}`}
-      onClick={() => setScenario(id)}
-      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setScenario(id)}
-      tabIndex={0}
-      role="radio"
-      aria-checked={scenario === id}
-      data-testid={`scenario-${id}`}
-    >
-      <td className="pick">
-        <span className="radio" />
-      </td>
-      <td className="l">
-        <span className="strong">{name}</span>
-        <span className="sub narrow-only">{what}</span>
-      </td>
-      <td className="l date">{starts}</td>
-      <td>{length}</td>
-      <td className="l wide-only">{what}</td>
-    </tr>
-  );
+  const markets = [
+    { id: "generated", name: "Generated market", starts: "Year 1", weeks: "any", what: "A new realistic world for every seed: regime, prices, freight, stocks and chokepoints drawn from the model calibrated on 20 years of data." },
+    ...EPISODES.map((e) => {
+      const sc = Game.scenarioFor(e.id, "x");
+      return { id: e.id, name: e.name, starts: `${shortDate(sc.startDate)} ${sc.startDate.slice(0, 4)}`, weeks: String(sc.weeks), what: e.teaser };
+    }),
+  ];
+  const link = `${location.origin}${location.pathname}?seed=${encodeURIComponent(seed)}`;
   return (
     <div className="start">
       <h1>Laycan</h1>
-      <p className="sub">Run a physical refined-products book: buy and sell cargoes, charter tankers, store, blend and hedge. Every dollar of P&amp;L is explained.</p>
-      <div className="market-list">
-        <div className="table-wrap">
-          <table aria-label="Markets" role="radiogroup">
-            <thead>
-              <tr>
-                <th />
-                <th className="l">Market</th>
-                <th className="l">Starts</th>
-                <th>Weeks</th>
-                <th className="l wide-only">What happens</th>
-              </tr>
-            </thead>
-            <tbody>
-              {row("generated", "Generated market", "Year 1", "any", "A new realistic world for every seed: regime, prices, freight, stocks and chokepoints drawn from the model calibrated on 20 years of data.")}
-              {EPISODES.map((e) => {
-                const sc = Game.scenarioFor(e.id, "x");
-                return row(e.id, e.name, shortDate(sc.startDate) + " " + sc.startDate.slice(0, 4), String(sc.weeks), e.teaser);
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <p className="lede">Run a physical refined-products book: buy and sell cargoes, charter tankers, store, blend and hedge. Every dollar of P&amp;L is explained.</p>
       <div className="go form-row">
         <label className="field">
           Seed
-          <input value={seed} onChange={(e) => setSeed(e.target.value)} aria-label="Seed" style={{ width: 120, fontFamily: "var(--mono)" }} />
+          <input value={seed} onChange={(e) => setSeed(e.target.value)} aria-label="Seed" className="seed-input" />
         </label>
         {scenario === "generated" && (
           <label className="field">
@@ -119,16 +88,62 @@ function StartScreen({ onStart, resume, onManual }: { onStart: (scenario: string
           Read the manual
         </button>
       </div>
-      {resume && !resume.over && (
-        <div className="resume">
-          <button className="btn link" onClick={() => onStart("", "")}>
-            Resume saved game ({resume.scenario.name.split(" —")[0]}, {resume.displayDate()})
-          </button>
-        </div>
-      )}
-      <p className="muted" style={{ marginTop: 12, fontSize: 13 }}>
-        The same seed always gives the same market. Share <code>?seed=…</code> to play the same one.
+      <p className="hint-line">
+        Same seed, same market:{" "}
+        <a href={link} data-testid="seed-link">
+          share this seed
+        </a>
+        {resume && !resume.over && (
+          <>
+            {" · "}
+            <button className="btn link" onClick={() => onStart("", "")}>
+              Resume saved game ({resume.scenario.name.split(" —")[0]}, {resume.displayDate()})
+            </button>
+          </>
+        )}
       </p>
+      <div className="market-list">
+        <table aria-label="Markets" role="radiogroup">
+          <thead>
+            <tr>
+              <th />
+              <th className="l">Market</th>
+              <th className="l wide-only">Starts</th>
+              <th className="wide-only">Weeks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {markets.map((mk) => (
+              <tr
+                key={mk.id}
+                className={`click ${scenario === mk.id ? "sel" : ""}`}
+                onClick={() => setScenario(mk.id)}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setScenario(mk.id)}
+                tabIndex={0}
+                role="radio"
+                aria-checked={scenario === mk.id}
+                data-testid={`scenario-${mk.id}`}
+                title={mk.what}
+              >
+                <td className="pick">
+                  <span className="radio" />
+                </td>
+                <td className="l">
+                  <span className="strong">{mk.name}</span>
+                  <span className="sub">
+                    <span className="narrow-only">
+                      {mk.starts} · {mk.weeks === "any" ? "any length" : `${mk.weeks} weeks`} ·{" "}
+                    </span>
+                    {scenario === mk.id ? mk.what : firstSentence(mk.what)}
+                  </span>
+                </td>
+                <td className="l date wide-only">{mk.starts}</td>
+                <td className="wide-only">{mk.weeks}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

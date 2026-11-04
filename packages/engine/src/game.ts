@@ -41,7 +41,7 @@ import {
   type Relation,
   type Tender,
 } from "./agents/counterparties";
-import { isBusinessDay, isoDate, parseDate } from "./core/calendar";
+import { isBusinessDay, parseDate } from "./core/calendar";
 import { sqrt } from "./core/dmath";
 import { Rng, type RngState } from "./core/rng";
 import type { ProductId } from "./core/units";
@@ -467,7 +467,7 @@ export class Game {
         const t = this.state.tenders.find((x) => x.id === a.tenderId && x.status === "open");
         if (!t) return { ok: false, message: "Tender closed or unknown." };
         t.bid = Math.round(a.diff * 100) / 100;
-        return { ok: true, message: `Bid submitted to ${t.cptyName}: index ${t.bid >= 0 ? "+" : ""}${t.bid.toFixed(2)} $/bbl. Award on ${isoDate(t.closeDay)}.` };
+        return { ok: true, message: `Bid submitted to ${t.cptyName}: index ${t.bid >= 0 ? "+" : ""}${t.bid.toFixed(2)} $/bbl. Award on ${this.displayDate(t.closeDay)}.` };
       }
       case "lease":
         return lease(this, a.hub, a.capacityBbl, a.months);
@@ -619,7 +619,7 @@ export class Game {
     const t = maybeTender(this.rCpty, this.market, `tn${this.state.nextOfferId++}`, this.offerContext());
     if (t) {
       this.state.tenders.push(t);
-      this.state.news.push({ day: this.day, kind: "market", severity: "info", title: `Tender: ${t.cptyName} ${t.playerSide === "sell" ? "buys" : "sells"} ${(t.qtyBbl / 1000).toFixed(0)} kbbl ${t.product} ${t.incoterm} ${t.hub}`, body: `Sealed bids close ${isoDate(t.closeDay)}.` });
+      this.state.news.push({ day: this.day, kind: "market", severity: "info", title: `Tender: ${t.cptyName} ${t.playerSide === "sell" ? "buys" : "sells"} ${(t.qtyBbl / 1000).toFixed(0)} kbbl ${t.product} ${t.incoterm} ${t.hub}`, body: `Sealed bids close ${this.displayDate(t.closeDay)}.` });
     }
   }
 

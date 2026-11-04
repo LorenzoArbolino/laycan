@@ -185,17 +185,20 @@ function OfferRow({ game, o, act, open, toggle }: { game: Game; o: Offer; act: (
     <Fragment>
       <tr className={`click ${open ? "sel" : ""}`} onClick={toggle} data-testid="offer" aria-expanded={open}>
         <td className={o.playerSide === "buy" ? "strong" : ""}>{o.playerSide === "buy" ? "Buy" : "Sell"}</td>
-        <td className="l">
+        <td className="l wrap">
           {(o.qtyBbl / 1000).toFixed(0)} {o.product} {o.incoterm} {o.hub}
           <span className="sub">{range(d(o.laycan[0]), d(o.laycan[1]))}</span>
+          <span className="sub narrow-only">
+            {pricingLabel(o.pricing)} {signed(o.pricing.diff)} · {o.cptyName.replace(/ (Co\.|Ltd)$/, "")} {cp?.rating} · {where}
+          </span>
         </td>
-        <td className="l" title={PRICING_INFO[o.pricing.kind]}>
+        <td className="l wide-only" title={PRICING_INFO[o.pricing.kind]}>
           {pricingLabel(o.pricing)} {signed(o.pricing.diff)}
           <span className="sub">
             {o.cptyName.replace(/ (Co\.|Ltd)$/, "")} · {cp?.rating}
           </span>
         </td>
-        <td className="l dim">{where}</td>
+        <td className="l dim wide-only">{where}</td>
         <td className={best ? (best.arb! >= 0 ? "ok strong" : "bad") : ""}>{best ? signed(best.arb!) : ""}</td>
         <td>{action}</td>
       </tr>
@@ -259,8 +262,8 @@ export function OffersPanel({ game, act, hub, clearHub }: { game: Game; act: (a:
               <tr>
                 <th>You</th>
                 <th className="l">Cargo, kbbl · laycan</th>
-                <th className="l">Pricing, $/bbl · counterparty</th>
-                <th className="l">Route</th>
+                <th className="l wide-only">Pricing, $/bbl · counterparty</th>
+                <th className="l wide-only">Route</th>
                 <th>Arb $/bbl</th>
                 <th />
               </tr>

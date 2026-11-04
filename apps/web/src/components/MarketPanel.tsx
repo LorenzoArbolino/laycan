@@ -228,7 +228,7 @@ export function MarketPanel({ game }: { game: Game }) {
                           <span className="code">{id}</span> <span className="dim">{spec.quoteUnit}</span>
                         </td>
                         {listedMonths(id, game.day).map((lm) => (
-                          <td key={lm.code} title={`${lm.code}, expires ${isoDate(lm.expiry)}`}>
+                          <td key={lm.code} title={`${lm.code}, expires ${shortDate(isoDate(lm.expiry))}`}>
                             {(game.futuresQuote(id, lm.y, lm.m) * spec.quotePerBbl).toFixed(spec.quoteUnit === "$/gal" ? 4 : 2)}
                           </td>
                         ))}

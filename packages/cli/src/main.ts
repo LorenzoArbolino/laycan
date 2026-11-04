@@ -88,7 +88,7 @@ function printBook(g: Game) {
   console.log(`\nEquity ${m$(b.total)}  (P&L ${m$(s.pnl)}, max drawdown ${m$(s.maxDrawdown)})  cash ${m$(b.cash)}  credit line ${m$(g.creditLimit())}  VaR99 ${m$(g.var99())}`);
   const pos = g.openPositions();
   for (const d of pos.deals) console.log(`  ${d.id.padEnd(5)} ${d.side} ${(d.qty / 1000).toFixed(0)} kbbl ${d.product} ${d.incoterm} ${d.hub} [${d.status}] priced ${d.fixings.length}/${d.window?.length ?? (d.pricing.kind === "fixed" ? 1 : 5)}${d.voyageId ? ` via ${d.voyageId}` : ""}`);
-  for (const v of pos.voyages) console.log(`  ${v.id.padEnd(5)} ${v.cls} ${v.routeId} via ${v.via} [${v.status}] ETA load ${isoDate(v.arriveLoad)}${v.arriveDisch ? ` disch ${isoDate(v.arriveDisch)}` : ""}`);
+  for (const v of pos.voyages) console.log(`  ${v.id.padEnd(5)} ${v.cls} ${v.routeId} via ${v.via} [${v.status}] ETA load ${g.displayDate(v.arriveLoad)}${v.arriveDisch ? ` disch ${g.displayDate(v.arriveDisch)}` : ""}`);
   for (const c of pos.cargoes) console.log(`  ${c.id.padEnd(5)} ${(c.qty / 1000).toFixed(0)} kbbl ${c.product} in ${c.where} at ${c.hub}`);
   for (const f of pos.futures) console.log(`  ${f.id.padEnd(5)} ${f.lots} lots ${FUTURES[f.contract].name} ${f.y}-${String(f.m).padStart(2, "0")}`);
 }

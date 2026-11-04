@@ -41,7 +41,9 @@ export function Tips({ id, tips }: { id: string; tips: ReactNode[] }) {
       <span className="tip-label">{tips.length > 1 ? `Tip ${seen + 1}/${tips.length}` : "Tip"}</span>
       <div className="tip-body">{tips[seen]}</div>
       <button className="tip-close" onClick={close} aria-label={seen + 1 < tips.length ? "Next tip" : "Close tip"} title={seen + 1 < tips.length ? "Close (next tip)" : "Close"}>
-        ×
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+          <path d="M2 2 L10 10 M10 2 L2 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
       </button>
     </div>
   );

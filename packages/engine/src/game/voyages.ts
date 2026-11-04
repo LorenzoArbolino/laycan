@@ -4,7 +4,6 @@
  */
 import { offSpecDiscount } from "../blending/blend";
 import type { Bucket, Cargo, Voyage } from "../book/types";
-import { isoDate } from "../core/calendar";
 import { Rng } from "../core/rng";
 import { type ProductId, productBblPerTonne } from "../core/units";
 import type { PortDisruption } from "../events/macro";
@@ -109,7 +108,7 @@ export function charter(g: Game, routeId: string, via: Voyage["via"] | undefined
   const perT = (v.freightUsd + v.warRiskUsd) / VESSELS[r.cls].cargoTonnes.value;
   return {
     ok: true,
-    message: `Fixed ${r.cls} on ${routeId} via ${q.via}: $${perT.toFixed(1)}/t all-in (${(perT / productBblPerTonne(product)).toFixed(2)} $/bbl), ETA load ${isoDate(v.arriveLoad)}.${v.saleId ? ` Will deliver sale ${v.saleId}.` : ""}`,
+    message: `Fixed ${r.cls} on ${routeId} via ${q.via}: $${perT.toFixed(1)}/t all-in (${(perT / productBblPerTonne(product)).toFixed(2)} $/bbl), ETA load ${g.displayDate(v.arriveLoad)}.${v.saleId ? ` Will deliver sale ${v.saleId}.` : ""}`,
     id,
   };
 }

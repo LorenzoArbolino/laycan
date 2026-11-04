@@ -1,4 +1,5 @@
 export const money = (x: number, digits = 2): string => {
+  if (Math.abs(x) < 0.5) return "$0";
   const a = Math.abs(x);
   const s = a >= 1e6 ? `${(a / 1e6).toFixed(digits)}m` : a >= 1e3 ? `${(a / 1e3).toFixed(0)}k` : a.toFixed(0);
   return `${x < 0 ? "−" : ""}$${s}`;

@@ -191,13 +191,15 @@ function Timeline({ game, sel, onSel }: { game: Game; sel: string | null; onSel:
 
 /* ------------------------------------------------------------------ positions blotter */
 
-function Row({ id, sel, onSel, cells, detail, testId }: { id: string; sel: boolean; onSel: (id: string) => void; cells: ReactNode[]; detail?: ReactNode; testId?: string }) {
+/** One position row; `narrow` repeats the date and pricing columns under the position on phones. */
+function Row({ id, sel, onSel, cells, detail, testId, narrow }: { id: string; sel: boolean; onSel: (id: string) => void; cells: ReactNode[]; detail?: ReactNode; testId?: string; narrow?: string }) {
   return (
     <Fragment>
       <tr className={`click ${sel ? "sel" : ""}`} onClick={() => onSel(sel ? "" : id)} data-testid={testId} id={`pos-${id}`}>
         {cells.map((c, i) => (
-          <td key={i} className={i === 1 || i === 2 ? "l wrap" : undefined}>
+          <td key={i} className={i === 1 ? "l wrap" : i === 2 ? "l wrap wide-only" : i === 3 ? "wide-only" : undefined}>
             {c}
+            {i === 1 && narrow && <span className="sub narrow-only">{narrow}</span>}
           </td>
         ))}
       </tr>
@@ -241,6 +243,7 @@ export function BookPanel({ game, act }: { game: Game; act: (a: Action) => void 
         sel={sel === d.id}
         onSel={select}
         testId="deal"
+        narrow={`${range(day(d.laycan[0]), day(d.laycan[1]))} · priced ${d.pricing.kind === "fixed" ? "fixed" : `${Math.min(k, n)}/${n}`}`}
         cells={[
           <span className="code">{d.id}</span>,
           <>
@@ -288,6 +291,7 @@ export function BookPanel({ game, act }: { game: Game; act: (a: Action) => void 
         sel={sel === v.id}
         onSel={select}
         testId="voyage"
+        narrow={`load ${day(v.arriveLoad)}${v.arriveDisch ? ` · discharge ${day(v.arriveDisch)}` : ""}`}
         cells={[
           <span className="code">{v.id}</span>,
           <>
@@ -403,8 +407,8 @@ export function BookPanel({ game, act }: { game: Game; act: (a: Action) => void 
               <tr>
                 <th>ID</th>
                 <th className="l">Position</th>
-                <th className="l">Dates</th>
-                <th>Priced</th>
+                <th className="l wide-only">Dates</th>
+                <th className="wide-only">Priced</th>
                 <th className="l">Stage</th>
                 <th>Mark</th>
               </tr>
