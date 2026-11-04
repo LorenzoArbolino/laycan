@@ -128,11 +128,11 @@ test("tips close one at a time; the book says what each voyage carries", async (
   await page.screenshot({ path: "test-results/book.png", fullPage: true });
 });
 
-test("an open-ended game has no end date and ends on request", async ({ page }) => {
+test("an unlimited game (the default) has no end date and ends on request", async ({ page }) => {
   await page.goto("/?seed=e2e-open");
   await page.getByTestId("scenario-generated").click();
-  await page.getByLabel("Duration").selectOption("0");
-  await page.getByRole("button", { name: "Start open-ended game" }).click();
+  await expect(page.getByLabel("Duration")).toHaveValue("0"); // unlimited is the default
+  await page.getByRole("button", { name: "Start unlimited game" }).click();
   await expect(page.getByTestId("week")).toHaveText("1");
   for (let i = 0; i < 3; i++) await page.getByTestId("next").click();
   await expect(page.getByTestId("week")).toHaveText("4");

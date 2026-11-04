@@ -39,7 +39,7 @@ function seedFromUrl(): string | null {
 function StartScreen({ onStart, resume, onManual }: { onStart: (scenario: string, seed: string, weeks?: number) => void; resume: Game | null; onManual: () => void }) {
   // weeks = 0: open-ended (generated markets only)
   const [scenario, setScenario] = useState("generated");
-  const [weeks, setWeeks] = useState(12);
+  const [weeks, setWeeks] = useState(0);
   const episode = EPISODES.find((e) => e.id === scenario);
   const episodeWeeks = episode ? Game.scenarioFor(episode.id, "x").weeks : weeks;
   const [seed, setSeed] = useState(seedFromUrl() ?? String(Math.floor(Math.random() * 1e6)));
@@ -81,12 +81,12 @@ function StartScreen({ onStart, resume, onManual }: { onStart: (scenario: string
           <label className="field">
             Duration
             <select value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} aria-label="Duration">
+              <option value={0}>Unlimited</option>
               {[8, 12, 26, 52].map((w) => (
                 <option key={w} value={w}>
                   {w} weeks{w === 52 ? " (a year)" : ""}
                 </option>
               ))}
-              <option value={0}>Open-ended (stop when you like)</option>
             </select>
           </label>
         )}
@@ -94,7 +94,7 @@ function StartScreen({ onStart, resume, onManual }: { onStart: (scenario: string
           Read the manual
         </button>
         <button className="btn primary" onClick={() => onStart(scenario, seed, scenario === "generated" ? weeks : undefined)} data-testid="start">
-          {scenario === "generated" && weeks === 0 ? "Start open-ended game" : `Start ${episodeWeeks}-week game`}
+          {scenario === "generated" && weeks === 0 ? "Start unlimited game" : `Start ${episodeWeeks}-week game`}
         </button>
         {resume && !resume.over && (
           <button className="btn" onClick={() => onStart("", "")}>

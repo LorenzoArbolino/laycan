@@ -34,7 +34,7 @@ This manual covers everything in the game: how markets are built, every action y
 
 ## 1. Quick start
 
-1. Pick a mode on the start screen. **Generated market** is a fresh, realistic world. **Historical replay** puts you inside a real episode, such as the 2022 diesel crisis. Choose a seed (the same seed always gives the same market) and, for generated markets, a length from 8 to 52 weeks or an open-ended game.
+1. Pick a mode on the start screen. **Generated market** is a fresh, realistic world. **Historical replay** puts you inside a real episode, such as the 2022 diesel crisis. Choose a seed (the same seed always gives the same market) and, for generated markets, a length: **Unlimited** (the default) or 8 to 52 weeks.
 2. Look at the **world map**. Each hub shows its price for the selected product. **Green routes** are routes where, at today's prices, the destination pays more than the origin plus freight: the arbitrage is open.
 3. Open **Offers & bids**. Under a cargo you can buy FOB (free on board, so you arrange the ship), each possible route shows freight and the arb at today's prices. Click **Buy + ship** to buy the cargo and charter a tanker in one step.
 4. Find a buyer at the destination (a **YOU SELL** bid delivered there) and attach it to your voyage, or let the ship discharge into a tank and sell later.
@@ -51,7 +51,7 @@ Your first game: start a generated market, buy one FOB cargo where the map shows
 
 A realistic world with no real date and no real prices. The game draws a starting regime (calm, stressed or at war), Brent, product cracks, freight rates, inventories and chokepoint states from a model calibrated on twenty years of public data, then runs the market for three months before you start so that charts have history. Dates appear as "Year 1". Every seed is a different world; share a seed (or the URL with `?seed=...`) to play the same one.
 
-Length: 8, 12, 26 or 52 weeks, or **open-ended**: the market runs as long as you like, and **End game** in the top bar stops it and shows your score. Longer games mean more regime changes, more events and more time for storage plays. In long games the charts keep the last three years.
+Length: **Unlimited** (the default): the market runs as long as you like, and **End game** in the top bar stops it and shows your score. Or a fixed 8, 12, 26 or 52 weeks. Longer games mean more regime changes, more events and more time for storage plays. In long games the charts keep the last three years.
 
 ### Historical replay
 
@@ -74,7 +74,7 @@ Headlines summarise public reporting. Dates marked "approx." are approximate.
 
 ## 3. The screen
 
-**Top bar.** Date, week, equity, P&L, cash and credit line, mode, market regime, and the **Next week** button (plus **End game** in open-ended games). **Assumptions** lists every number the model uses, with its source. **Manual** opens this document.
+**Top bar.** Date, week, equity, P&L, cash and credit line, mode, market regime, and the **Next week** button (plus **End game** in unlimited games). **Assumptions** lists every number the model uses, with its source. **Manual** opens this document.
 
 **Tips.** Blue boxes are tips. Close one with × and the next appears; **Show all tips again** at the bottom of this manual brings them back.
 
