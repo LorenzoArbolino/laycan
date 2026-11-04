@@ -47,7 +47,11 @@ const LABEL_OFFSET: Record<HubId, [number, number, "start" | "end"]> = {
   JPN: [-10, 18, "end"],
 };
 
-export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: HubId | null) => void; selectedHub: HubId | null }) {
+/**
+ * The world map. `compact` draws only the chart (no header, product switch or key): used as the
+ * live picture on the start screen.
+ */
+export function WorldMap({ game, onHub, selectedHub = null, compact = false }: { game: Game; onHub?: (h: HubId | null) => void; selectedHub?: HubId | null; compact?: boolean }) {
   const [product, setProduct] = useState<ProductId>("diesel");
   const m = game.market;
   const landPath = useMemo(() => path(LAND) ?? "", []);
@@ -67,19 +71,8 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
   for (const o of game.state.offers) offersAt.set(o.hub, (offersAt.get(o.hub) ?? 0) + 1);
   const storms = game.state.ports;
 
-  return (
-    <section className="panel map-panel" aria-label="World map">
-      <div className="panel-head" style={{ paddingBottom: 8 }}>
-        <h2>World</h2>
-        <div className="seg" role="radiogroup" aria-label="Product">
-          {(["gasoline", "diesel", "jet"] as const).map((p) => (
-            <button key={p} role="radio" aria-checked={product === p} className={product === p ? "on" : ""} onClick={() => setProduct(p)}>
-              {p}
-            </button>
-          ))}
-        </div>
-      </div>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" className="map" role="img" aria-label="Map of hubs, routes, chokepoints and your ships">
+  const chart = (
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" className="map" role="img" aria-label={compact ? "Today's market: hubs, prices and routes" : "Map of hubs, routes, chokepoints and your ships"}>
         <rect x={0} y={0} width={W} height={H} fill="var(--sea)" />
         <path d={graticule} fill="none" stroke="#d3dde3" strokeWidth={0.5} />
         <path d={landPath} fill="var(--land)" stroke="var(--coast)" strokeWidth={0.7} />
@@ -150,9 +143,9 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
           const n = offersAt.get(h);
           const sel = selectedHub === h;
           return (
-            <g key={h} className="hub" onClick={() => onHub(sel ? null : h)} style={{ cursor: "pointer" }} data-testid={`hub-${h}`}>
+            <g key={h} className="hub" onClick={() => onHub?.(sel ? null : h)} style={{ cursor: onHub ? "pointer" : "default" }} data-testid={compact ? undefined : `hub-${h}`}>
               {t && <circle cx={x} cy={y} r={11} fill="none" stroke="var(--accent)" strokeWidth={1.5} strokeDasharray="3 2" />}
-              {Math.abs(m.stocks[HUB_REGION[h]][product]) >= 3 && (
+              {!compact && Math.abs(m.stocks[HUB_REGION[h]][product]) >= 3 && (
                 <circle cx={x} cy={y} r={15} fill="none" stroke={m.stocks[HUB_REGION[h]][product] < 0 ? "var(--bad)" : "var(--ok)"} strokeOpacity={0.45} strokeWidth={Math.min(6, 1 + Math.abs(m.stocks[HUB_REGION[h]][product]) / 4)}>
                   <title>{`${HUB_REGION[h]} ${product} stocks ${m.stocks[HUB_REGION[h]][product] >= 0 ? "+" : ""}${m.stocks[HUB_REGION[h]][product].toFixed(1)}% vs normal`}</title>
                 </circle>
@@ -171,14 +164,14 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
               <circle cx={x} cy={y} r={sel ? 7 : 5} fill={sel ? "var(--accent)" : "var(--surface)"} stroke={sel ? "var(--accent)" : "var(--ink)"} strokeWidth={1.8} />
               <text x={x + dx} y={y + dy} textAnchor={anchor} className="hub-label">
                 {h} <tspan className="hub-price">{price.toFixed(1)}</tspan>
-                {h !== "USGC" && <tspan className="hub-diff"> {diff >= 0 ? "+" : "−"}{Math.abs(diff).toFixed(1)}</tspan>}
+                {h !== "USGC" && !compact && <tspan className="hub-diff"> {diff >= 0 ? "+" : "−"}{Math.abs(diff).toFixed(1)}</tspan>}
               </text>
               {t && (
                 <text x={x + dx} y={y + dy + 13} textAnchor={anchor} className="hub-sub">
                   tank {(t / 1000).toFixed(0)} kbbl
                 </text>
               )}
-              {n && (
+              {n && !compact && (
                 <g transform={`translate(${anchor === "start" ? x - 11 : x + 11},${y - 11})`}>
                   <circle r={7} fill="var(--ink)" />
                   <text textAnchor="middle" y={3.5} fontSize={9} fill="#fff" fontWeight={600}>
@@ -206,6 +199,21 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
           );
         })}
       </svg>
+  );
+  if (compact) return chart;
+  return (
+    <section className="panel map-panel" aria-label="World map">
+      <div className="panel-head" style={{ paddingBottom: 8 }}>
+        <h2>World</h2>
+        <div className="seg" role="radiogroup" aria-label="Product">
+          {(["gasoline", "diesel", "jet"] as const).map((p) => (
+            <button key={p} role="radio" aria-checked={product === p} className={product === p ? "on" : ""} onClick={() => setProduct(p)}>
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+      {chart}
       <div className="map-key">
         <span className="key"><i style={{ borderColor: "var(--ok)" }} />arb open today</span>
         <span className="key"><i style={{ borderColor: "#8f9aa3" }} />arb closed</span>

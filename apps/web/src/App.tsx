@@ -39,6 +39,47 @@ function seedFromUrl(): string | null {
 
 /* ------------------------------------------------------------------ start */
 
+/** The market the player is about to start, built in the background for the start screen's picture. */
+function makePreview(scenario: string, seed: string): Game | null {
+  try {
+    return Game.create({ scenario, seed: seed || "0", weeks: 1 });
+  } catch {
+    return null;
+  }
+}
+
+function usePreview(scenario: string, seed: string): Game | null {
+  // the first picture is built at once; later changes wait for typing to pause
+  const [preview, setPreview] = useState<Game | null>(() => makePreview(scenario, seed));
+  const key = scenario === "generated" ? `${scenario}|${seed}` : scenario;
+  useEffect(() => {
+    if (preview && preview.state.scenarioId === scenario && (scenario !== "generated" || preview.state.seed === (seed || "0"))) return;
+    const t = setTimeout(() => setPreview(makePreview(scenario, seed)), 180);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return preview;
+}
+
+function HeroMap({ preview, scenario, seed }: { preview: Game | null; scenario: string; seed: string }) {
+  return (
+    <figure className="hero-map" aria-label="The market you are about to trade">
+      {preview ? <WorldMap game={preview} compact /> : <div className="map-placeholder" />}
+      <figcaption>
+        {scenario === "generated" ? (
+          <>
+            Seed <span className="code">{seed || "0"}</span> on its first day · diesel $/bbl · green: arb open
+          </>
+        ) : (
+          <>
+            {preview?.scenario.name.split(" —")[0]}, {preview ? preview.displayDate() : ""} · diesel $/bbl · green: arb open
+          </>
+        )}
+      </figcaption>
+    </figure>
+  );
+}
+
 /** First sentence of a teaser: the list stays short; the full text shows on the selected row. */
 const firstSentence = (t: string) => {
   const i = t.indexOf(". ");
@@ -59,49 +100,60 @@ function StartScreen({ onStart, resume, onManual }: { onStart: (scenario: string
     }),
   ];
   const link = `${location.origin}${location.pathname}?seed=${encodeURIComponent(seed)}`;
+  const preview = usePreview(scenario, seed);
   return (
     <div className="start">
-      <h1>Laycan</h1>
-      <p className="lede">Run a physical refined-products book: buy and sell cargoes, charter tankers, store, blend and hedge. Every dollar of P&amp;L is explained.</p>
-      <div className="go form-row">
-        <label className="field">
-          Seed
-          <input value={seed} onChange={(e) => setSeed(e.target.value)} aria-label="Seed" className="seed-input" />
-        </label>
-        {scenario === "generated" && (
-          <label className="field">
-            Length
-            <select value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} aria-label="Duration">
-              <option value={0}>Unlimited</option>
-              {[8, 12, 26, 52].map((w) => (
-                <option key={w} value={w}>
-                  {w} weeks
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <button className="btn primary" onClick={() => onStart(scenario, seed, scenario === "generated" ? weeks : undefined)} data-testid="start">
-          {scenario === "generated" && weeks === 0 ? "Start unlimited game" : `Start ${episodeWeeks}-week game`}
-        </button>
-        <button className="btn" onClick={onManual} data-testid="start-manual">
-          Read the manual
-        </button>
-      </div>
-      <p className="hint-line">
-        Same seed, same market:{" "}
-        <a href={link} data-testid="seed-link">
-          share this seed
-        </a>
-        {resume && !resume.over && (
-          <>
-            {" · "}
-            <button className="btn link" onClick={() => onStart("", "")}>
-              Resume saved game ({resume.scenario.name.split(" —")[0]}, {resume.displayDate()})
-            </button>
-          </>
-        )}
-      </p>
+      <header className="hero">
+        <div className="hero-text">
+          <div>
+            <h1>Laycan</h1>
+            <p className="lede">Run a physical refined-products book: buy and sell cargoes, charter tankers, store, blend and hedge. Every dollar of P&amp;L is explained.</p>
+          </div>
+          <div>
+            <div className="go form-row">
+              <label className="field">
+                Seed
+                <input value={seed} onChange={(e) => setSeed(e.target.value)} aria-label="Seed" className="seed-input" />
+              </label>
+              {scenario === "generated" && (
+                <label className="field">
+                  Length
+                  <select value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} aria-label="Duration">
+                    <option value={0}>Unlimited</option>
+                    {[8, 12, 26, 52].map((w) => (
+                      <option key={w} value={w}>
+                        {w} weeks
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <button className="btn primary" onClick={() => onStart(scenario, seed, scenario === "generated" ? weeks : undefined)} data-testid="start">
+                {scenario === "generated" && weeks === 0 ? "Start unlimited game" : `Start ${episodeWeeks}-week game`}
+              </button>
+            </div>
+            <p className="hint-line">
+              <button className="btn link" onClick={onManual} data-testid="start-manual">
+                Read the manual
+              </button>
+              {" · "}
+              Same seed, same market:{" "}
+              <a href={link} data-testid="seed-link">
+                share this seed
+              </a>
+              {resume && !resume.over && (
+                <>
+                  {" · "}
+                  <button className="btn link" onClick={() => onStart("", "")}>
+                    Resume saved game ({resume.scenario.name.split(" —")[0]}, {resume.displayDate()})
+                  </button>
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+        <HeroMap preview={preview} scenario={scenario} seed={seed} />
+      </header>
       <div className="market-list">
         <table aria-label="Markets" role="radiogroup">
           <thead>
