@@ -10,6 +10,7 @@ below. Raw downloads are never committed; `npm run check:data` enforces this.
 | Atlantic hurricane tracks | NOAA National Hurricane Center, HURDAT2 | Public domain (U.S. government) | Hurricane frequency by month (derived rates only) |
 | Sea routes and distances | `searoute` (Apache-2.0) on the Eurostat MARNET maritime network | Apache-2.0 for the software; outputs are computed distances and simplified paths | `params/geo.json`, freight distances |
 | Land outlines for the map | Natural Earth 1:110m, via the `world-atlas` package (ISC) | Natural Earth is public domain | Web app map |
+| Typeface | IBM Plex Sans and IBM Plex Mono, via `@fontsource` packages | SIL Open Font License 1.1 | Web app |
 | Clean-tanker route rates and earnings (a handful of data points, 19-20 Oct 2026) | Optima Shipbroking public market summary | Cited facts | Starting freight levels in one regime preset; freight model validation |
 | Futures curve shape (one derived number) | ICE Gasoil futures observations, late Oct 2026 | Exchange data used for calibration only; no exchange data is redistributed | Backwardation level in the war-regime preset |
 

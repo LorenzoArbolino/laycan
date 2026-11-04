@@ -74,34 +74,34 @@ Headlines summarise public reporting. Dates marked "approx." are approximate.
 
 ## 3. The screen
 
-**Top bar.** Date, week, equity, P&L, cash and credit line, mode, market regime, and the **Next week** button (plus **End game** in unlimited games). **Assumptions** lists every number the model uses, with its source. **Manual** opens this document.
+**Top bar.** Date and week, equity, P&L, cash and credit line, the market regime, and **Next week →** (plus **End game** in unlimited games). **Manual** opens this document; **Assumptions** lists every number the model uses, with its source.
 
-**Tips.** Blue boxes are tips. Close one with × and the next appears; **Show all tips again** at the bottom of this manual brings them back.
+**Tips.** One-line tips sit at the top of some tabs. Close one with × and the next appears; **Show all tips again** at the bottom of this manual brings them back.
 
 **Left: market.**
-- *Prices*: every hub's price for each product in $/bbl; the small number is the hub's differential to the US Gulf. Charts of cracks, Brent and the Europe–US diesel spread.
+- *Prices*: every hub's price for each product in $/bbl, with its differential to the US Gulf in grey; charts of the diesel crack (gasoline and jet in grey), the ARA − US Gulf diesel spread and Brent.
 - *Stocks*: refinery runs and inventories by region against their normal (see section 6).
-- *Freight*: every route and variant with $/t, $/bbl, voyage days and war-risk cost; blocked routes are struck through. Charts of tanker earnings.
-- *Curves*: futures prices for the next months of each contract.
+- *Freight*: chokepoint states, then every route and variant with $/t, $/bbl, voyage days and war-risk cost; blocked routes are struck through.
+- *Curves*: futures prices for the next months of each contract, and the expected change over the next month.
 
 **Centre: the world map.**
-- Hubs with prices for the selected product (switch gasoline / diesel / jet at the top right).
+- Hubs with prices for the selected product and their differential (switch gasoline / diesel / jet at the top right).
 - Routes: green where the arbitrage is open today, grey where it is closed, red dashed where blocked. Hover for freight and arb.
-- Diamonds: chokepoints, coloured green (open), amber (restricted) or red (closed).
-- Rings around hubs: red if the region is short of the selected product, green if long.
-- A dashed ring means you have product in tank there; a purple bubble counts the offers and bids at that hub.
-- Ships: your vessels, moving along their routes. Dashed teal lines are diverted voyages. A storm icon marks a port disrupted by a hurricane.
-- Click a hub to filter offers to that hub.
+- Diamonds: chokepoints, green (open), amber (restricted) or red (closed).
+- Rings around hubs: red if the region is short of the selected product, green if long. A dashed ring means you have product in tank there; a small black number counts the offers and bids at that hub.
+- Ships: your vessels, moving along their routes; dashed lines are diverted voyages; a cyclone marks a port shut by a hurricane.
+- Click a hub to filter the offers to that hub.
 
 **Centre: tabs.**
-- *Offers & bids*: this week's deal flow, tenders, and quote requests.
-- *Book, storage & hedges*, in sections:
-  - **Physical deals**, by stage: *open* (title has not passed: "to receive" or "to deliver"), *delivered, awaiting payment* (title passed at the hub shown; the invoice is due) and *closed* (paid, or cancelled). Each line says where title passes and what happens next.
-  - **Voyages**: what each ship carries, the purchase it loads and the sale it delivers (or "discharges into tank" if none), with dates and divert controls.
-  - **Cargo in tank**, **Hedges and exposure**, **Storage** and **Blending**.
+- *Offers & bids*: one row per offer, with the best route and today's arb, and **Buy + ship** (or **Buy**, **Sell**) in the row. Click a row for every route, the arb as arithmetic, the terms and a counter-offer. Tenders sit above; **Request a quote** below.
+- *Book*: the next ten weeks on one axis (laycans of your purchases and sales, their pricing windows as dotted lines, voyages, futures expiries, tank leases), then the **positions** table: deals by stage, voyages with what they carry and the deals they link, product in tank. Click a bar or a row for detail and actions (divert, sell spot, ship on); closed deals are listed below.
+  - Deal stages: *to receive / to deliver* (title has not passed), *received / delivered, unpaid* (title passed at the hub shown; the invoice is due), *closed* (paid) or *cancelled*.
+- *Hedging*: your exposure by price component and VaR, futures positions, and the trade ticket.
+- *Storage*: carry by hub and product, your tank leases, and the lease ticket.
+- *Blending*: the recipe editor and optimiser.
 - *Counterparties*: who you trade with, their ratings and your relationship with each.
 
-**Right: P&L attribution, risk and news.** Attribution by bucket (physical and paper), equity chart, return, drawdown, Value-at-Risk, breaches, and the accounting check. Below it, news and alerts.
+**Right: P&L and news.** Attribution by bucket (physical in blue, futures in grey), the equity chart, return, drawdown, Value-at-Risk, breaches and the accounting check. Below it, news: critical items in red, warnings in amber.
 
 ---
 
@@ -231,7 +231,7 @@ Index today 135.20 → indicative 135.55 $/bbl.
 
 ### Pricing risk: the most important idea in the game
 
-A floating-price purchase has **no price risk** until its pricing window starts, because you will pay whatever the market is then. Your exposure builds up only as the quotes fix. The **Exposure** table in the Book tab always shows your true exposure by price component. Watch it before you hedge.
+A floating-price purchase has **no price risk** until its pricing window starts, because you will pay whatever the market is then. Your exposure builds up only as the quotes fix. The **Exposure** table in the Hedging tab always shows your true exposure by price component. Watch it before you hedge.
 
 A mismatch between the pricing of a purchase and the sale it feeds is real risk. Buying on "5 quotes around loading" and selling on "month average" leaves you exposed for the days between.
 
@@ -338,7 +338,7 @@ A laden ship can be sent somewhere else. Open **Divert…** under a sailing voya
 
 ## 11. Storage
 
-- **Lease tank capacity** at any hub (Book → Storage). Leases are take-or-pay: you pay for the full capacity every day of the term, used or not. Rents rise when the market is in contango, because storage is then valuable to everyone.
+- **Lease tank capacity** at any hub (Storage tab). Leases are take-or-pay: you pay for the full capacity every day of the term, used or not. Rents rise when the market is in contango, because storage is then valuable to everyone.
 - Product in tank above your leased capacity pays **spot tankage**, 1.6 times the lease rate.
 - **Buy in tank (ITT)** offers are prompt parcels you can put straight into storage. Delivered purchases also land in your tank.
 - **Sell spot now** sells a parcel from your tank immediately to a merchant at the index minus $0.60/bbl, paid in five days.
@@ -357,7 +357,7 @@ Positive net carry is a profitable storage trade, as long as you hedge the price
 
 ## 12. Blending
 
-At ARA, Singapore, the US Gulf or New York you can blend gasoline from refinery components in your leased tank (Book → Blending). You need free leased tank space for the volume.
+At ARA, Singapore, the US Gulf or New York you can blend gasoline from refinery components in your leased tank (Blending tab). You need free leased tank space for the volume.
 
 | Component | Strength | Weakness |
 |---|---|---|

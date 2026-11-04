@@ -27,7 +27,7 @@ export function Manual({ onClose }: { onClose: () => void }) {
   return (
     <div className="modal-bg" onClick={onClose}>
       <div className="modal manual" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Manual">
-        <div className="panel-head">
+        <div className="modal-head">
           <h2>Game manual</h2>
           <button className="btn small" onClick={onClose}>
             Close

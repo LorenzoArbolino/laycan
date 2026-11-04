@@ -1,5 +1,6 @@
 import { Tips } from "./Tips";
 import { ROSTER, defaultProbability, type Game } from "@laycan/engine";
+import { signed } from "../format";
 
 export function CounterpartiesPanel({ game }: { game: Game }) {
   return (
@@ -31,25 +32,23 @@ export function CounterpartiesPanel({ game }: { game: Game }) {
               const r = game.state.relations[c.id] ?? { score: 0, deals: 0, fails: 0 };
               return (
                 <tr key={c.id} title={c.blurb}>
-                  <td style={{ whiteSpace: "normal" }}>
-                    <b>{c.name}</b>
-                    <div className="muted" style={{ fontSize: 11 }}>
+                  <td className="wrap">
+                    <span className="strong">{c.name}</span>
+                    <div className="muted" style={{ fontSize: 12 }}>
                       {c.kind} · {c.hubs.join(", ")} · {c.sells && c.buys ? "buys and sells" : c.sells ? "sells" : "buys"}
                       {c.tenders ? " · tenders" : ""}
                     </div>
                   </td>
+                  <td>{c.rating}</td>
+                  <td>{(defaultProbability(c, game.market.regime) * 100).toFixed(1)}%</td>
+                  <td>{Math.round(c.reliability * 100)}%</td>
                   <td>
-                    <span className={`badge ${c.rating === "A" ? "data" : c.rating === "BBB" ? "derived" : "estimate"}`}>{c.rating}</span>
-                  </td>
-                  <td className="num">{(defaultProbability(c, game.market.regime) * 100).toFixed(1)}%</td>
-                  <td className="num">{Math.round(c.reliability * 100)}%</td>
-                  <td>
-                    <div className="bar-track" style={{ width: 90 }}>
-                      <div className="bar-mid" />
-                      <div className={`bar ${r.score >= 0 ? "phys" : "paper"}`} style={{ left: r.score >= 0 ? "50%" : `${50 + r.score * 50}%`, width: `${Math.abs(r.score) * 50}%`, background: r.score < 0 ? "var(--neg)" : undefined }} />
+                    <div className="track" style={{ width: 90, marginLeft: "auto" }} title={signed(r.score)}>
+                      <div className="mid" />
+                      <div className="b" style={{ top: 4, left: r.score >= 0 ? "50%" : `${50 + r.score * 50}%`, width: `${Math.abs(r.score) * 50}%`, background: r.score < 0 ? "var(--bad)" : "var(--ok)" }} />
                     </div>
                   </td>
-                  <td className="num">
+                  <td>
                     {r.deals} / {r.fails}
                   </td>
                 </tr>

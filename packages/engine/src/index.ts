@@ -1,6 +1,6 @@
 export * from "./game";
 export * from "./book/types";
-export { contractPrice, equity, equityBreakdown, futuresPrice, fixedShare } from "./book/valuation";
+export { contractPrice, equity, equityBreakdown, futuresPrice, fixedShare, dealValue, cargoValue, futuresValue, expectedDeliveryDay, pricingDays } from "./book/valuation";
 export { attributeMarketMove, exposures, type Exposure } from "./book/attribution";
 export * from "./agents/counterparties";
 export * from "./events/macro";
@@ -19,3 +19,4 @@ export { makeGeneratedScenario } from "./params/generated";
 export { EPISODES, makeHistoricalScenario, replayRows, REPLAY_SOURCE } from "./params/episodes";
 export * from "./blending/blend";
 export { solveLP } from "./blending/lp";
+export { hubForward, brentForward, frontSpread, CURVE_DAYS } from "./market/curve";

@@ -3,20 +3,17 @@ import { useState } from "react";
 import { BLEND_HUBS, COMPONENT_DATA, COMPONENTS, type Action, type ComponentId, type Game, type HubId, type Recipe, type Voyage } from "@laycan/engine";
 import { money, signed } from "../format";
 
-export function DivertControl({ game, v, act }: { game: Game; v: Voyage; act: (a: Action) => void }) {
-  const [open, setOpen] = useState(false);
+/** Diversion options for a laden ship: price at each hub vs the current destination, extra days, cost. */
+export function DivertOptions({ game, v, act }: { game: Game; v: Voyage; act: (a: Action) => void }) {
   const opts = game.diversionOptions(v.id);
-  if (!opts.length) return null;
+  if (!opts.length) return <span className="dim">No diversion options from here.</span>;
   return (
-    <div style={{ marginTop: 4 }}>
-      <button className="btn small" onClick={() => setOpen(!open)} data-testid={`divert-${v.id}`}>
-        {open ? "Hide diversion options" : "Divert…"}
-      </button>
-      {open && (
-        <table style={{ marginTop: 4 }} aria-label={`Diversion options for ${v.id}`}>
+    <div>
+      <div className="table-wrap">
+        <table aria-label={`Diversion options for ${v.id}`}>
           <thead>
             <tr>
-              <th>To</th>
+              <th>Divert to</th>
               <th>Price vs {v.to}</th>
               <th>Extra days</th>
               <th>Cost</th>
@@ -26,16 +23,14 @@ export function DivertControl({ game, v, act }: { game: Game; v: Voyage; act: (a
           </thead>
           <tbody>
             {opts.map((o) => (
-              <tr key={o.to}>
+              <tr key={o.to} className={o.feasible ? "" : "blocked"}>
+                <td>{o.to}</td>
+                <td className={o.priceGainPerBbl >= 0 ? "ok" : "bad"}>{signed(o.priceGainPerBbl)}</td>
+                <td>{signed(o.extraDays, 1)}</td>
+                <td>{money(o.costUsd)}</td>
+                <td className={`strong ${o.netPerBbl >= 0 ? "ok" : "bad"}`}>{signed(o.netPerBbl)}</td>
                 <td>
-                  <b>{o.to}</b>
-                </td>
-                <td className={`num ${o.priceGainPerBbl >= 0 ? "pos" : "neg"}`}>{signed(o.priceGainPerBbl)}</td>
-                <td className="num">{signed(o.extraDays, 1)}</td>
-                <td className="num">{money(o.costUsd)}</td>
-                <td className={`num ${o.netPerBbl >= 0 ? "pos" : "neg"}`}>{signed(o.netPerBbl)}</td>
-                <td>
-                  <button className="btn small primary" disabled={!o.feasible} title={o.feasible ? (o.breaksSale ? `Breaks the link to sale ${o.breaksSale}` : "") : `Blocked: ${o.blockedBy.join(", ")}`} onClick={() => act({ type: "divert", voyageId: v.id, to: o.to })}>
+                  <button className="btn small" disabled={!o.feasible} title={o.feasible ? (o.breaksSale ? `Breaks the link to sale ${o.breaksSale}` : "") : `Blocked: ${o.blockedBy.join(", ")}`} onClick={() => act({ type: "divert", voyageId: v.id, to: o.to })}>
                     {o.feasible ? "Divert" : "Blocked"}
                   </button>
                 </td>
@@ -43,8 +38,8 @@ export function DivertControl({ game, v, act }: { game: Game; v: Voyage; act: (a
             ))}
           </tbody>
         </table>
-      )}
-      {open && v.saleId && <small className="neg">Diverting breaks the link to sale {v.saleId}: you will need another cargo for it.</small>}
+      </div>
+      {v.saleId && <p className="warn" style={{ fontSize: 12, marginTop: 6 }}>Diverting breaks the link to sale {v.saleId}: you will need another cargo for it.</p>}
     </div>
   );
 }
@@ -119,9 +114,9 @@ export function BlendPanel({ game, act }: { game: Game; act: (a: Action) => void
             {COMPONENTS.map((c) => (
               <tr key={c} title={data[c].note}>
                 <td>{data[c].name}</td>
-                <td className="num">{q.prices[c].toFixed(2)}</td>
-                <td className="num">{data[c].ron}</td>
-                <td className="num">{data[c].rvp}</td>
+                <td>{q.prices[c].toFixed(2)}</td>
+                <td>{data[c].ron}</td>
+                <td>{data[c].rvp}</td>
                 <td>
                   <input type="number" min={0} max={100} step={0.5} value={pct(c)} onChange={(e) => setPct(c, Number(e.target.value))} style={{ width: 70 }} aria-label={`${data[c].name} share`} />
                 </td>
@@ -137,23 +132,23 @@ export function BlendPanel({ game, act }: { game: Game; act: (a: Action) => void
             {q.checks.map((c) => (
               <tr key={c.label + c.limit}>
                 <td>{c.label}</td>
-                <td className="num">{c.value.toFixed(c.value < 10 ? 2 : 1)}</td>
-                <td className="num">{c.limit}</td>
-                <td className={c.ok ? "pos" : "neg"}>{c.ok ? "✓" : "✗"}</td>
+                <td>{c.value.toFixed(c.value < 10 ? 2 : 1)}</td>
+                <td>{c.limit}</td>
+                <td className={c.ok ? "ok" : "bad strong"}>{c.ok ? "ok" : "fails"}</td>
               </tr>
             ))}
             <tr>
               <td>
                 <b>Blend cost (incl. fee)</b>
               </td>
-              <td className="num">{q.cost.toFixed(2)}</td>
-              <td className="num">vs finished {q.finished.toFixed(2)}</td>
+              <td>{q.cost.toFixed(2)}</td>
+              <td>vs finished {q.finished.toFixed(2)}</td>
               <td className={`num ${q.margin >= 0 ? "pos" : "neg"}`}>{signed(q.margin)}</td>
             </tr>
             {optimalCost !== null && recipe && (
               <tr>
                 <td>Optimiser's cost</td>
-                <td className="num">{optimalCost.toFixed(2)}</td>
+                <td>{optimalCost.toFixed(2)}</td>
                 <td colSpan={2} className="muted">
                   {q.checks.every((c) => c.ok) && q.cost <= optimalCost + 0.005 ? "you matched the optimiser" : "the optimiser does better"}
                 </td>

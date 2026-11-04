@@ -37,15 +37,9 @@ export function Tips({ id, tips }: { id: string; tips: ReactNode[] }) {
     setSeen(seen + 1);
   };
   return (
-    <div className="hint tip" data-testid={`tip-${id}`}>
-      <div className="tip-body">
-        {tips.length > 1 && (
-          <span className="tip-count">
-            Tip {seen + 1}/{tips.length}
-          </span>
-        )}
-        {tips[seen]}
-      </div>
+    <div className="tip" data-testid={`tip-${id}`}>
+      <span className="tip-label">{tips.length > 1 ? `Tip ${seen + 1}/${tips.length}` : "Tip"}</span>
+      <div className="tip-body">{tips[seen]}</div>
       <button className="tip-close" onClick={close} aria-label={seen + 1 < tips.length ? "Next tip" : "Close tip"} title={seen + 1 < tips.length ? "Close (next tip)" : "Close"}>
         ×
       </button>

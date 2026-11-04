@@ -10,3 +10,12 @@ export const shortDate = (iso: string): string => {
   const d = new Date(iso + "T00:00:00Z");
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 };
+export const px = (x: number, digits = 2): string => (x < 0 ? "−" : "") + Math.abs(x).toFixed(digits);
+export const range = (a: string, b: string): string => {
+  const [da, ma] = a.split(" ");
+  const [db, mb] = b.split(" ");
+  return ma === mb ? `${da}–${db} ${mb}` : `${a} – ${b}`;
+};
+/** Short pricing label: "B/L ±2", "B/L +5", "Dec avg", "fixed". */
+export const pricingLabel = (p: { kind: string; month?: { y: number; m: number } }): string =>
+  p.kind === "bl5" ? "B/L ±2" : p.kind === "post5" ? "B/L +5" : p.kind === "month" && p.month ? `${new Date(Date.UTC(p.month.y, p.month.m - 1, 1)).toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" })} avg` : "fixed";

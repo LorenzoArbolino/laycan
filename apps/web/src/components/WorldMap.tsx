@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { geoNaturalEarth1, geoPath } from "d3-geo";
+import { geoGraticule10, geoNaturalEarth1, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import land110 from "world-atlas/land-110m.json";
@@ -33,6 +33,7 @@ const projection = geoNaturalEarth1().fitExtent(
   { type: "MultiPoint", coordinates: [[-104, 63], [150, 63], [-104, -38], [150, -38]] },
 );
 const path = geoPath(projection);
+const graticule = path(geoGraticule10()) ?? "";
 const pt = (c: [number, number]) => projection(c) ?? [0, 0];
 
 const LABEL_OFFSET: Record<HubId, [number, number, "start" | "end"]> = {
@@ -68,7 +69,7 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
 
   return (
     <section className="panel map-panel" aria-label="World map">
-      <div className="panel-head">
+      <div className="panel-head" style={{ paddingBottom: 8 }}>
         <h2>World</h2>
         <div className="seg" role="radiogroup" aria-label="Product">
           {(["gasoline", "diesel", "jet"] as const).map((p) => (
@@ -79,8 +80,9 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
         </div>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" className="map" role="img" aria-label="Map of hubs, routes, chokepoints and your ships">
-        <rect x={0} y={0} width={W} height={H} fill="var(--sea)" rx={8} />
-        <path d={landPath} fill="var(--land)" stroke="var(--land-edge)" strokeWidth={0.6} />
+        <rect x={0} y={0} width={W} height={H} fill="var(--sea)" />
+        <path d={graticule} fill="none" stroke="#d3dde3" strokeWidth={0.5} />
+        <path d={landPath} fill="var(--land)" stroke="var(--coast)" strokeWidth={0.7} />
 
         {routes.map(({ r, qs, best, arb }) =>
           qs.map((q) => {
@@ -88,7 +90,7 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
             const d = path({ type: "LineString", coordinates: coords }) ?? "";
             const isBest = best && q.via === best.via;
             const blocked = !q.feasible;
-            const color = blocked ? "var(--neg)" : arb !== null && arb > 0 ? "var(--pos)" : "var(--route)";
+            const color = blocked ? "var(--bad)" : arb !== null && arb > 0 ? "var(--ok)" : "#8f9aa3";
             return (
               <path
                 key={r.id + q.via}
@@ -110,7 +112,7 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
         {ships
           .filter(({ v }) => v.pathKey)
           .map(({ v }) => (
-            <path key={`d-${v.id}`} d={path({ type: "LineString", coordinates: v.path ?? HUB_PAIRS[v.pathKey!]?.path ?? [] }) ?? ""} fill="none" stroke="var(--ship)" strokeWidth={2} strokeDasharray="6 3">
+            <path key={`d-${v.id}`} d={path({ type: "LineString", coordinates: v.path ?? HUB_PAIRS[v.pathKey!]?.path ?? [] }) ?? ""} fill="none" stroke="var(--accent)" strokeWidth={2} strokeDasharray="6 3">
               <title>{`${v.id} diverted from ${v.divertedFrom} to ${v.to}`}</title>
             </path>
           ))}
@@ -118,7 +120,7 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
         {Object.entries(CHOKEPOINT_COORDS).map(([c, coord]) => {
           const [x, y] = pt(coord);
           const st = m.choke[c as keyof typeof m.choke];
-          const col = st === "open" ? "var(--pos)" : st === "restricted" ? "var(--warn)" : "var(--neg)";
+          const col = st === "open" ? "var(--ok)" : st === "restricted" ? "var(--warn)" : "var(--bad)";
           return (
             <g key={c} transform={`translate(${x},${y})`}>
               <rect x={-5} y={-5} width={10} height={10} transform="rotate(45)" fill={col} stroke="#fff" strokeWidth={1.2} />
@@ -130,9 +132,12 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
         {storms.map((s, i) => {
           const [x, y] = pt(HUB_INFO[s.hub].coords);
           return (
-            <text key={i} x={x - 22} y={y - 14} fontSize={18} aria-label="port disruption">
-              🌀<title>{`Port disruption at ${s.hub}: +${s.extraDays} days`}</title>
-            </text>
+            <g key={i} transform={`translate(${x - 20},${y - 20})`} aria-label="port disruption">
+              {/* cyclone: two arcs around an eye */}
+              <circle r={3} fill="var(--warn)" />
+              <path d="M0,-9 A9,9 0 0 1 9,0 M0,9 A9,9 0 0 1 -9,0" fill="none" stroke="var(--warn)" strokeWidth={2.2} strokeLinecap="round" />
+              <title>{`Port disruption at ${s.hub}: +${s.extraDays} days`}</title>
+            </g>
           );
         })}
 
@@ -146,9 +151,9 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
           const sel = selectedHub === h;
           return (
             <g key={h} className="hub" onClick={() => onHub(sel ? null : h)} style={{ cursor: "pointer" }} data-testid={`hub-${h}`}>
-              {t && <circle cx={x} cy={y} r={11} fill="none" stroke="var(--accent)" strokeWidth={2} strokeDasharray="3 2" />}
+              {t && <circle cx={x} cy={y} r={11} fill="none" stroke="var(--accent)" strokeWidth={1.5} strokeDasharray="3 2" />}
               {Math.abs(m.stocks[HUB_REGION[h]][product]) >= 3 && (
-                <circle cx={x} cy={y} r={15} fill="none" stroke={m.stocks[HUB_REGION[h]][product] < 0 ? "var(--neg)" : "var(--pos)"} strokeOpacity={0.55} strokeWidth={Math.min(6, 1 + Math.abs(m.stocks[HUB_REGION[h]][product]) / 4)}>
+                <circle cx={x} cy={y} r={15} fill="none" stroke={m.stocks[HUB_REGION[h]][product] < 0 ? "var(--bad)" : "var(--ok)"} strokeOpacity={0.45} strokeWidth={Math.min(6, 1 + Math.abs(m.stocks[HUB_REGION[h]][product]) / 4)}>
                   <title>{`${HUB_REGION[h]} ${product} stocks ${m.stocks[HUB_REGION[h]][product] >= 0 ? "+" : ""}${m.stocks[HUB_REGION[h]][product].toFixed(1)}% vs normal`}</title>
                 </circle>
               )}
@@ -163,10 +168,10 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
                 const y1 = Math.max(y + 16, y + dy + (t ? 18 : 6));
                 return <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="transparent" />;
               })()}
-              <circle cx={x} cy={y} r={sel ? 9 : 7} fill={sel ? "var(--accent)" : "#fff"} stroke="var(--accent)" strokeWidth={2.5} />
+              <circle cx={x} cy={y} r={sel ? 7 : 5} fill={sel ? "var(--accent)" : "var(--surface)"} stroke={sel ? "var(--accent)" : "var(--ink)"} strokeWidth={1.8} />
               <text x={x + dx} y={y + dy} textAnchor={anchor} className="hub-label">
-                <tspan fontWeight={700}>{h}</tspan> <tspan className="num">{price.toFixed(1)}</tspan>
-                {h !== "USGC" && <tspan className="hub-diff"> ({diff >= 0 ? "+" : ""}{diff.toFixed(1)})</tspan>}
+                {h} <tspan className="hub-price">{price.toFixed(1)}</tspan>
+                {h !== "USGC" && <tspan className="hub-diff"> {diff >= 0 ? "+" : "−"}{Math.abs(diff).toFixed(1)}</tspan>}
               </text>
               {t && (
                 <text x={x + dx} y={y + dy + 13} textAnchor={anchor} className="hub-sub">
@@ -174,9 +179,9 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
                 </text>
               )}
               {n && (
-                <g transform={`translate(${x + 8},${y - 12})`}>
-                  <circle r={7} fill="var(--paper)" />
-                  <text textAnchor="middle" y={3.5} fontSize={9} fill="#fff" fontWeight={700}>
+                <g transform={`translate(${anchor === "start" ? x - 11 : x + 11},${y - 11})`}>
+                  <circle r={7} fill="var(--ink)" />
+                  <text textAnchor="middle" y={3.5} fontSize={9} fill="#fff" fontWeight={600}>
                     {n}
                   </text>
                 </g>
@@ -188,7 +193,7 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
 
         {ships.map(({ v, pos }, i) => {
           const [x, y] = pt(pos.at);
-          const col = pos.phase === "held" ? "var(--neg)" : pos.phase === "laden" ? "var(--ship)" : "var(--ink-3)";
+          const col = pos.phase === "held" ? "var(--bad)" : pos.phase === "laden" ? "var(--accent)" : "var(--muted)";
           const off = pos.phase === "laden" ? 0 : 10 + 6 * (i % 3);
           return (
             <g key={v.id} transform={`translate(${x + (pos.phase === "laden" ? 0 : off)},${y + (pos.phase === "laden" ? 0 : -off)})`} data-testid="ship">
@@ -201,34 +206,15 @@ export function WorldMap({ game, onHub, selectedHub }: { game: Game; onHub: (h: 
           );
         })}
       </svg>
-      <div className="legend map-legend">
-        <span>
-          <span className="dot" style={{ background: "var(--pos)" }} />
-          arb open today (destination − origin − freight &gt; 0)
-        </span>
-        <span>
-          <span className="dot" style={{ background: "var(--route)" }} />
-          arb closed
-        </span>
-        <span>
-          <span className="dot" style={{ background: "var(--neg)" }} />
-          blocked
-        </span>
-        <span>◆ chokepoint state</span>
-        <span>
-          <span className="dot" style={{ background: "var(--ship)" }} />
-          your ships
-        </span>
-        <span>
-          <span className="dot" style={{ background: "var(--paper)", borderRadius: 9 }} />
-          offers at hub
-        </span>
-        <span>
-          <span className="dot" style={{ background: "var(--neg)", opacity: 0.6, borderRadius: 9 }} />
-          region short /{" "}
-          <span className="dot" style={{ background: "var(--pos)", opacity: 0.6, borderRadius: 9 }} />
-          long ({product} stocks)
-        </span>
+      <div className="map-key">
+        <span className="key"><i style={{ borderColor: "var(--ok)" }} />arb open today</span>
+        <span className="key"><i style={{ borderColor: "#8f9aa3" }} />arb closed</span>
+        <span className="key"><i className="dash" style={{ borderColor: "var(--bad)" }} />blocked</span>
+        <span className="key"><i className="dmd" style={{ background: "var(--warn)" }} />chokepoint</span>
+        <span className="key"><i className="ring" style={{ borderColor: "var(--bad)" }} />region short of {product}</span>
+        <span className="key"><i className="ring" style={{ borderColor: "var(--ok)" }} />long</span>
+        <span className="key"><i style={{ borderColor: "var(--accent)", width: 10, borderTopWidth: 6 }} />your ships</span>
+        <span className="key">numbers: offers at hub · click a hub to filter</span>
       </div>
     </section>
   );

@@ -60,9 +60,10 @@ test("historical replay, storage and futures buttons", async ({ page }) => {
   await page.getByTestId("scenario-covid_2020").click();
   await page.getByTestId("start").click();
   await expect(page.getByTestId("date")).toHaveText("2 Mar 2020");
-  await page.getByTestId("tab-book").click();
+  await page.getByTestId("tab-storage").click();
   await page.getByRole("button", { name: /Lease tank/ }).click();
   await expect(page.getByText(/kbbl at ARA/).first()).toBeVisible();
+  await page.getByTestId("tab-hedge").click();
   await page.getByTestId("fut-sell").click();
   await expect(page.getByText(/Short 100/)).toBeVisible();
   await page.getByTestId("hub-ARA").click();
@@ -75,8 +76,9 @@ test("blending and diversion from the book", async ({ page }) => {
   await page.getByTestId("scenario-covid_2020").click();
   await page.getByTestId("start").click();
   await page.getByRole("button", { name: "Buy + ship" }).first().click();
-  await page.getByTestId("tab-book").click();
+  await page.getByTestId("tab-storage").click();
   await page.getByRole("button", { name: /Lease tank/ }).click();
+  await page.getByTestId("tab-blend").click();
   await page.getByTestId("blend").click();
   await expect(page.getByText(/Blended 200 kbbl/)).toBeVisible();
   for (let i = 0; i < 4; i++) await page.getByTestId("next").click();
@@ -98,7 +100,7 @@ test("negotiation, counterparties and fundamentals views", async ({ page }) => {
   await page.getByTestId("tab-cpty").click();
   await expect(page.getByRole("table", { name: "Counterparties" })).toContainText("Meridian Energy");
   await page.getByTestId("market-fundamentals").click();
-  await expect(page.getByRole("table", { name: "Regional fundamentals" })).toContainText("EU");
+  await expect(page.getByRole("table", { name: "Regional fundamentals" })).toContainText("Northwest Europe");
 });
 
 test("the manual opens in the app and its contents links work; Japan is on the map", async ({ page }) => {
