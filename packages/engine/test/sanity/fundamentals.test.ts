@@ -27,16 +27,21 @@ describe("fundamentals: shocks propagate through utilisation and stocks", () => 
     expect(hit.stocks.EU.diesel).toBeLessThan(base.stocks.EU.diesel - 1);
     expect(hit.diffs.ARA.diesel).toBeGreaterThan(base.diffs.ARA.diesel);
   });
-  it("a short region pulls in cargoes: stocks recover while the premium fades", () => {
+  it("a short region pulls in cargoes: barrels move from its suppliers, they are not created", () => {
     const g = Game.create({ scenario: "normal_2025", seed: "short" });
     g.cfg.freezeRegime = true;
     g.market.stocks.EU.diesel = -20;
     const prem0 = g.market.diffs.ARA.diesel;
     for (let i = 0; i < 10; i++) g.stepDay();
     const premEarly = g.market.diffs.ARA.diesel;
-    for (let i = 0; i < 200; i++) g.stepDay();
+    let supplierMin = 0;
+    for (let i = 0; i < 200; i++) {
+      g.stepDay();
+      supplierMin = Math.min(supplierMin, g.market.stocks.WAF.diesel, g.market.stocks.ME.diesel);
+    }
     expect(premEarly).toBeGreaterThan(prem0); // shortage priced in
-    expect(g.market.stocks.EU.diesel).toBeGreaterThan(-12); // refilled by imports and mean reversion
+    expect(g.market.stocks.EU.diesel).toBeGreaterThan(-17); // partly refilled
+    expect(supplierMin).toBeLessThan(-5); // ... by drawing down the regions that ship to it
   });
   it("replays use real US utilisation (Winter Storm Uri)", () => {
     const g = Game.create({ scenario: "uri_2021", seed: "u" });

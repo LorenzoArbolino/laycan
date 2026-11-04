@@ -63,7 +63,6 @@ export function makeGeneratedScenario(seed: string): Scenario {
     LR1: gen(fr.LR1.value * exp(0.25 * r.normal()), "$/day", "regime mean × lognormal"),
     LR2: gen(fr.LR2.value * exp(0.25 * r.normal()), "$/day", "regime mean × lognormal"),
   };
-  const st = MODEL.structure.mean[regime];
   return {
     id: "generated",
     kind: "generated",
@@ -87,7 +86,6 @@ export function makeGeneratedScenario(seed: string): Scenario {
     choke,
     chokeTransition: normal.chokeTransition,
     chokeTransitionByRegime: { normal: normal.chokeTransition, stressed: normal.chokeTransition, war: now.chokeTransition },
-    structure: { brent: st.brent, gasoline: st.gasoline, diesel: st.diesel, jet: st.jet },
     finance: normal.finance,
     eventRates: normal.eventRates,
     eventRatesByRegime: { normal: normal.eventRates, stressed: normal.eventRates, war: now.eventRates },

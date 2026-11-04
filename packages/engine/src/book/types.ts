@@ -21,7 +21,7 @@ export const BUCKET_INFO: Record<Bucket, { label: string; explain: string }> = {
   flat_price: { label: "Flat price", explain: "Outright exposure to Brent: what an unhedged position gains or loses when crude moves." },
   crack: { label: "Crack", explain: "Exposure to the product margin over Brent (the refining crack) at the US Gulf benchmark." },
   regional: { label: "Regional / arb", explain: "Location spreads between hubs. Includes the value captured when a cargo is loaded for a higher-priced destination (the arbitrage)." },
-  time_spread: { label: "Time spread & carry", explain: "Moves in curve structure (backwardation/contango), roll-down of futures towards expiry, and storage costs." },
+  time_spread: { label: "Time spread & carry", explain: "Changes in the shape of the forward curves, roll-down towards delivery (futures and cargoes marked on the curve), and storage costs." },
   quality: { label: "Quality", explain: "Grade and off-spec effects on cargo value." },
   freight: { label: "Freight", explain: "Charter costs, war-risk premiums and cargo insurance booked when ships are fixed." },
   optionality: { label: "Optionality", explain: "Value from quantity tolerance choices and from pricing windows that fix around the bill-of-lading date." },
@@ -114,6 +114,8 @@ export interface Cargo {
   voyageId?: string;
   qualityDiscount: number;
   sinceDay: number;
+  /** at sea: expected arrival day, for marking on the destination's forward curve */
+  markDay?: number;
 }
 
 export type VoyageStatus = "fixed" | "loading" | "sailing" | "held" | "discharging" | "done" | "cancelled";

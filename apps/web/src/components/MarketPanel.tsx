@@ -210,8 +210,8 @@ export function MarketPanel({ game }: { game: Game }) {
             </tbody>
           </table>
           <p className="muted" style={{ fontSize: 12 }}>
-            Front-month spread per month: {Object.entries(m.structure).map(([k, v]) => `${k} ${v >= 0 ? "+" : ""}${v.toFixed(2)}`).join(" · ")} $/bbl (positive = backwardation). In backwardation a short hedge
-            loses as futures roll up towards spot.
+            Expected change over the next month: {Object.entries(m.structure).map(([k, v]) => `${k} ${v >= 0 ? "−" : "+"}${Math.abs(v).toFixed(2)}`).join(" · ")} $/bbl. The curves are
+            the market's expectation of future spot (regime, stocks, season, fading physical basis), so backwardation means prices are expected to fall: rolling futures earns nothing on average.
           </p>
         </div>
       )}

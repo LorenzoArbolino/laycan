@@ -29,10 +29,26 @@ export function isBusinessDay(epochDay: number): boolean {
   return w !== 0 && w !== 6;
 }
 
+/** Civil year of an epoch day (integer arithmetic; proleptic Gregorian). */
+function civilYear(epochDay: number): number {
+  const z = epochDay + 719468;
+  const era = Math.floor(z / 146097);
+  const doe = z - era * 146097;
+  const yoe = Math.floor((doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365);
+  const doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100));
+  const mp = Math.floor((5 * doy + 2) / 153);
+  return yoe + era * 400 + (mp >= 10 ? 1 : 0);
+}
+
+/** Epoch day of 1 January of a year. */
+function jan1(y: number): number {
+  const yy = y - 1;
+  return 365 * (y - 1970) + Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) - 477;
+}
+
+/** 1 = 1 January. */
 export function dayOfYear(epochDay: number): number {
-  const d = new Date(epochDay * MS_PER_DAY);
-  const start = Date.UTC(d.getUTCFullYear(), 0, 1);
-  return Math.round((epochDay * MS_PER_DAY - start) / MS_PER_DAY) + 1;
+  return epochDay - jan1(civilYear(epochDay)) + 1;
 }
 
 export function ymd(epochDay: number): { y: number; m: number; d: number } {

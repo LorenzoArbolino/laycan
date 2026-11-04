@@ -8,7 +8,8 @@ import { isBusinessDay, ymd } from "../core/calendar";
 import type { Rng } from "../core/rng";
 import { tonnesToBbl, type ProductId } from "../core/units";
 import { exp } from "../core/dmath";
-import { hubPrice, type MarketState } from "../market/market";
+import type { MarketState } from "../market/market";
+import { hubForward } from "../market/curve";
 import type { Incoterm, Payment, Pricing, PricingKind } from "../book/types";
 import { est, type Param } from "../params/param";
 import type { Regime } from "../params/model";
@@ -229,7 +230,8 @@ export function makeOffer(rng: Rng, m: MarketState, id: string, expiresDay: numb
   const markup = c.markup * (0.5 + rng.uniform());
   const opening = rng.bernoulli(0.08) ? r - sign * (0.3 + 0.7 * rng.uniform()) : r + sign * markup;
   const diff = Math.round(opening * 20) / 20;
-  const M = hubPrice(m, t.hub, t.product);
+  // Fixed prices and the indicative level are set on the forward curve for the delivery date
+  const M = hubForward(m, t.hub, t.product, Math.round(start + len / 2));
   const pricing: Pricing = { kind, diff };
   if (kind === "fixed") pricing.fixedPrice = Math.round(M * 100) / 100;
   if (kind === "month") {

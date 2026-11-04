@@ -5,10 +5,11 @@
  *   m1: Brent updated              -> flat price
  *   m2: + cracks updated           -> crack
  *   m3: + regional diffs updated   -> regional
- *   m4: + curve structure and date -> time spread (incl. futures roll-down)
+ *   m4: + forward curves and date -> time spread (curve shape, roll-down, carry)
  * The sum telescopes, so the buckets add up to the total by construction.
  */
 import type { MarketState } from "../market/market";
+import { tilt } from "../market/curve";
 import { emptyAttribution, type Attribution, type Book } from "./types";
 import { equity, futuresValue } from "./valuation";
 
@@ -21,7 +22,7 @@ export function attributeMarketMove(book: Book, prev: MarketState, next: MarketS
   const m1: MarketState = { ...m0, brent: next.brent };
   const m2: MarketState = { ...m1, cracks: next.cracks };
   const m3: MarketState = { ...m2, diffs: next.diffs };
-  const m4: MarketState = { ...m3, structure: next.structure, day: next.day };
+  const m4: MarketState = { ...m3, structure: next.structure, curve: next.curve, day: next.day };
   const steps: [MarketState, MarketState, "flat_price" | "crack" | "regional" | "time_spread"][] = [
     [m0, m1, "flat_price"],
     [m1, m2, "crack"],
@@ -63,6 +64,7 @@ export function exposures(book: Book, m: MarketState): Exposure[] {
     if (h === "USGC") continue;
     for (const p of ["gasoline", "diesel", "jet"] as const) bump(`diff:${h}:${p}`, `${h} ${p} diff`, (y) => (y.diffs[h][p] += 1));
   }
-  for (const k of ["brent", "gasoline", "diesel", "jet"] as const) bump(`struct:${k}`, `${k} curve spread`, (y) => (y.structure[k] += 1));
+  // curve slope: the curve falls a further $1/bbl per month ahead (more backwardation)
+  for (const k of ["brent", "gasoline", "diesel", "jet"] as const) bump(`struct:${k}`, `${k} curve spread`, (y) => y.curve && tilt(y.curve, k, 1));
   return out;
 }

@@ -20,7 +20,7 @@ const cal = calibration as unknown as {
   regime: { states: string[]; daily_transition: CalParam<number[][]> };
   hurricane: { gulf_hurricanes_per_year_by_month: CalParam<number[]> };
   window_means: Record<"now_last90" | "now_last30" | "normal_2023_2025", CalParam<Record<string, number>>>;
-  fundamentals: Record<"util_kappa" | "util_sigma" | "util_sd" | "util_min", CalParam<number>> & Record<ProductId, Record<"stock_kappa" | "stock_sigma" | "util_to_stock_ols" | "crack_per_stock" | "ex_stock_kappa" | "ex_stock_sigma", CalParam<number>>>;
+  fundamentals: Record<"util_kappa" | "util_sigma" | "util_sd" | "util_min", CalParam<number>> & Record<ProductId, Record<"stock_kappa" | "stock_sigma" | "util_to_stock_ols" | "crack_per_stock" | "ex_stock_kappa" | "ex_stock_sigma" | "fast_share" | "fast_kappa" | "slow_kappa" | "deviation_var", CalParam<number>>>;
   snapshot_now: Record<string, CalParam<number | string>>;
   snapshot_normal_2025: Record<string, CalParam<number | string>>;
 };
@@ -28,7 +28,24 @@ export { cal as calibration };
 
 export interface CrackParams {
   season: Param<number[]>;
-  byRegime: Record<Regime, { kappa: Param; sigma: Param; jumpRate: Param; jumpScale: Param; mean: Param }>;
+  byRegime: Record<Regime, CrackRegime>;
+}
+
+/**
+ * crack = slow + fast. The slow part reverts to the regime's seasonal, stock-dependent mean
+ * over months; the fast part (a physical basis) reverts to zero within days. kappa/sigma are
+ * the single-AR(1) equivalents, kept for reporting and the generator's starting spread.
+ */
+export interface CrackRegime {
+  kappa: Param;
+  sigma: Param;
+  jumpRate: Param;
+  jumpScale: Param;
+  mean: Param;
+  fastKappa: Param;
+  fastSigma: Param;
+  slowKappa: Param;
+  slowSigma: Param;
 }
 
 const jumpCap = (p: CalParam<number>, cap: number): Param => ({
@@ -37,18 +54,42 @@ const jumpCap = (p: CalParam<number>, cap: number): Param => ({
   method: `${p.method}; capped at ${cap} to remove data-error spikes`,
 });
 
+/** Diffusive shock size of the fast part: its variance budget minus what the jumps already supply. */
+function fastSigma(budget: number, c: { jump_rate: CalParam<number>; jump_scale: CalParam<number> }): number {
+  // jumps = 0.8 × common Laplace(1) × scale + Laplace(0.2 × scale): variance 1.36 × scale²
+  const js = c.jump_scale.value;
+  const jumpVar = (c.jump_rate.value / 252) * 1.36 * js * js;
+  return Math.sqrt(Math.max(0.15 * budget, budget - jumpVar));
+}
+
 function crackParams(p: ProductId): CrackParams {
   const c = cal.cracks[p];
   const by = {} as CrackParams["byRegime"];
   // Normal regime: the crack process net of the stock channel (the engine adds slope × stocks)
   const fx = cal.fundamentals[p];
+  const w = fx.fast_share!.value;
+  const kf = fx.fast_kappa!.value;
+  const stationary = (k: number, s: number) => (s * s) / (1 - (1 - k) * (1 - k));
+  const vNormal = fx.deviation_var!.value;
   for (const r of REGIMES) {
+    const kappa = r === "normal" ? fx.ex_stock_kappa! : c[r].kappa;
+    const sigma = r === "normal" ? fx.ex_stock_sigma! : c[r].sigma;
+    // Stressed and war windows are too short for a two-speed fit: their variance scales with
+    // the single-AR(1) fit, the split is the normal one, and the slow part reprices within
+    // ~2 months (2022: diesel cracks tripled in about six weeks).
+    const V = r === "normal" ? vNormal : (vNormal * stationary(c[r].kappa.value, c[r].sigma.value)) / stationary(fx.ex_stock_kappa!.value, fx.ex_stock_sigma!.value);
+    const ks = r === "normal" ? fx.slow_kappa!.value : Math.max(fx.slow_kappa!.value, 0.6931471805599453 / 40);
+    const how = r === "normal" ? "from the two-speed ACF fit and the variance of the deseasonalised crack" : "normal-regime split and half-lives; variance scaled by the regime's AR(1) fit; slow half-life capped at 40 business days";
     by[r] = {
-      kappa: r === "normal" ? fx.ex_stock_kappa! : c[r].kappa,
-      sigma: r === "normal" ? fx.ex_stock_sigma! : c[r].sigma,
+      kappa,
+      sigma,
       jumpRate: c[r].jump_rate,
       jumpScale: jumpCap(c[r].jump_scale, r === "war" ? 20 : 12),
       mean: c[r].mean,
+      fastKappa: derived(kf, "1/business day", fx.fast_kappa!.source, "two-speed ACF fit (normal regime)"),
+      fastSigma: derived(fastSigma(w * V * (1 - (1 - kf) * (1 - kf)), c[r]), "$/bbl/day", fx.fast_share!.source, `${how}; net of the jump variance, which also lands on the fast part`),
+      slowKappa: r === "normal" ? derived(ks, "1/business day", fx.slow_kappa!.source, "two-speed ACF fit") : est(ks, "1/business day", "model design", how),
+      slowSigma: derived(Math.sqrt((1 - w) * V * (1 - (1 - ks) * (1 - ks))), "$/bbl/day", fx.fast_share!.source, how),
     };
   }
   return { season: c.season_fourier, byRegime: by };
@@ -107,24 +148,19 @@ export const MODEL = {
     portDays: est(2, "days per port call", "industry rule of thumb"),
   },
   structure: {
-    kappa: est(0.04, "1/day", "model design", "front spread mean reversion"),
-    sigma: est(0.15, "$/bbl/month/day", "model design"),
-    decay: est(0.88, "per month", "model design; ICE Gasoil curve shape, Oct 2026", "monthly spread shrinks by 12% per month along the curve"),
-    mean: {
-      normal: { brent: est(0.4, "$/bbl/month", "Brent backwardation 2023-2025"), gasoline: est(0.2, "$/bbl/month", "model design"), diesel: est(0.4, "$/bbl/month", "model design"), jet: est(0.4, "$/bbl/month", "model design") },
-      stressed: { brent: est(-0.8, "$/bbl/month", "2020 super-contango, damped"), gasoline: est(-0.8, "$/bbl/month", "2020"), diesel: est(-0.8, "$/bbl/month", "2020"), jet: est(-1.2, "$/bbl/month", "2020") },
+    slopeSigma: est(0.15, "$/bbl/month per day", "model design", "day-to-day noise in the front spread, for VaR on curve exposure"),
+    // Observed front spreads, used only to validate the curves the model implies (curve.ts):
+    // the curve is the model's own expectation of future spot, not an input.
+    observed: {
+      normal: { brent: est(0.4, "$/bbl/month", "Brent backwardation 2023-2025, typical") },
+      stressed: { brent: est(-2, "$/bbl/month", "Brent contango Apr-May 2020 (spot ~$20-30 vs Dec-20 ~$35-40); 2008-09 similar") },
       war: {
         brent: est(3.0, "$/bbl/month", "spot Brent $123 vs Jan futures ~$113 (late Oct 2026)"),
-        gasoline: est(1.5, "$/bbl/month", "model design"),
         diesel: derived(6.5, "$/bbl/month", "ICE Gasoil futures curve observations, late Oct 2026 (used for calibration only; exchange data not redistributed)", "front-month spreads ~$48-53/t ≈ $6.5-7/bbl"),
-        jet: est(5.0, "$/bbl/month", "assumed slightly below diesel"),
       },
-    } as Record<Regime, Record<"brent" | ProductId, Param>>,
+    } as Record<Regime, Partial<Record<"brent" | ProductId, Param>>>,
   },
   hurricane: cal.hurricane.gulf_hurricanes_per_year_by_month as Param<number[]>,
-  stocks: {
-    structureSlope: est(0.12, "($/bbl/month) per % of stocks", "theory of storage; order of magnitude from 2020 (surplus, contango) and 2022/2026 (deficit, backwardation)", "front monthly spread falls by $0.12/bbl for each 1% of stocks above the 5-year average"),
-  },
   fundamentals: {
     utilKappa: cal.fundamentals.util_kappa!,
     utilSigma: cal.fundamentals.util_sigma!,
@@ -139,7 +175,7 @@ export const MODEL = {
     } as Record<ProductId, Param>,
     arbFlow: est(0.04, "%/business day per $/bbl", "model design", "trade flows respond to a hub's price relative to its parity point: above parity, imports accelerate and the importing region's stocks rise (the exporter's fall); below parity they slow"),
     diffPerStock: est(0.25, "$/bbl per % stock gap", "model design; scaled to the calibrated US crack-stock slopes", "a hub's differential rises when its region is shorter than its supply region"),
-    regionWeight: est({ US: 0.4, EU: 0.3, ASIA: 0.2, ME: 0.05, WAF: 0.05 }, "weight", "rough shares of traded product inventories", "regional stocks combine into the global signal that drives curve structure") as Param<Record<RegionId, number>>,
+    regionWeight: est({ US: 0.4, EU: 0.3, ASIA: 0.2, ME: 0.05, WAF: 0.05 }, "weight", "rough shares of traded product inventories", "regional stocks combine into a global signal; also converts arb flows between regions, since the same barrels are a larger share of a smaller region's stocks") as Param<Record<RegionId, number>>,
   },
   storage: {
     baseFee: {
@@ -206,7 +242,6 @@ export interface ScriptedEvent {
   finance?: { lcFeeMult: number; overdraftMult: number; days: number };
   port?: [HubId, number];
   /** decaying shifts: [target, amount, half-life days] */
-  structure?: ["brent" | ProductId, number, number][];
   tce?: [VesselClass, number, number][];
   diff?: [HubId, ProductId, number, number][];
   stocks?: [ProductId, number, number][];
@@ -249,7 +284,6 @@ export interface Scenario {
   routeMult: RouteMult;
   choke: Record<"hormuz" | "babelmandeb" | "suez", "open" | "restricted" | "closed">;
   chokeTransition: Record<"hormuz" | "babelmandeb" | "suez", Param<Record<string, Record<string, number>>>>;
-  structure: Record<"brent" | ProductId, Param>;
   /** starting differentials that override parity at day 0 (rare) */
   diffOverrides?: Partial<Record<HubId, Partial<Record<ProductId, Param>>>>;
   finance: {
@@ -319,7 +353,6 @@ export const SCENARIOS: Record<string, Scenario> = {
       babelmandeb: est({ open: { restricted: 0.003, closed: 0.0005 }, restricted: { open: 0.003, closed: 0.002 }, closed: { restricted: 0.02, open: 0.002 } }, "prob/day", "Houthi campaign 2023-2026"),
       suez: est({ open: { restricted: 0.001, closed: 0.0002 }, restricted: { open: 0.05, closed: 0.001 }, closed: { open: 0.1, restricted: 0.05 } }, "prob/day", "Ever Given 2021: ~6-day closure"),
     },
-    structure: { brent: MODEL.structure.mean.war.brent, gasoline: MODEL.structure.mean.war.gasoline, diesel: MODEL.structure.mean.war.diesel, jet: MODEL.structure.mean.war.jet },
     finance: finance(50e6, "Nov 2026"),
     eventRates: {
       exportBan: est(4, "per year", "Russia diesel/gasoline bans and China quota halts, 2023-2026 frequency"),
@@ -361,7 +394,6 @@ export const SCENARIOS: Record<string, Scenario> = {
       babelmandeb: est({ open: { restricted: 0.001, closed: 0.0002 }, restricted: { open: 0.006, closed: 0.001 }, closed: { restricted: 0.03, open: 0.005 } }, "prob/day", "late-2025: attacks paused but most tonnage still avoiding the Red Sea"),
       suez: est({ open: { restricted: 0.0005, closed: 0.0001 }, restricted: { open: 0.05, closed: 0.001 }, closed: { open: 0.1, restricted: 0.05 } }, "prob/day", "Ever Given 2021"),
     },
-    structure: { brent: MODEL.structure.mean.normal.brent, gasoline: MODEL.structure.mean.normal.gasoline, diesel: MODEL.structure.mean.normal.diesel, jet: MODEL.structure.mean.normal.jet },
     finance: finance(50e6, "Nov 2025"),
     eventRates: {
       exportBan: est(1, "per year", "Russia/China product export restrictions, 2023-2025"),

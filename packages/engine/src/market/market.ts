@@ -3,15 +3,19 @@
  *
  * Price architecture (all additive in $/bbl, so P&L attribution is exact):
  *   hub price(h, p) = Brent + crack(p at USGC) + diff(h, p)          (diff(USGC, ·) = 0)
- *   futures(k)      = hub price − structure(p) · g(months to expiry)
+ *   futures(k, T)   = E_t[hub price on the expiry day T]           (see curve.ts)
  *
  * Dynamics (one step per business day):
  *   regime      hidden Markov chain normal / stressed / war
  *   Brent       GARCH(1,1) with Student-t shocks, regime vol multiplier, jumps
- *   cracks      seasonal Ornstein–Uhlenbeck with regime means, correlated t shocks, jumps
+ *   cracks      slow + fast + overlay: the slow part reverts over months to the regime's
+ *               mean, the fast part (a physical basis) clears within days, and the overlay
+ *               is the seasonal pattern, the US stock effect and decaying event shifts;
+ *               correlated t shocks; jumps hit the fast part
  *   diffs       band-OU around arbitrage parity: anchor ± θ·freight; extra pull when the arb opens
  *   freight     log-OU time-charter earnings per vessel class, chokepoint-driven shifts, jumps
- *   structure   OU front-month spread (backwardation > 0)
+ *   curves      the model's conditional expectation of future spot (no free lunch);
+ *               `structure` is the resulting front spread, a summary for display
  *   chokepoints Markov open / restricted / closed
  */
 import { cos, exp, log, sin, sqrt } from "../core/dmath";
@@ -34,6 +38,7 @@ import {
   type VesselClass,
 } from "../world/world";
 import { bestQuote, perBbl, type FreightInputs } from "./freight";
+import { brentDrift, brentVariance, buildCurve, frontSpread, type Curve } from "./curve";
 
 export type StructKey = "brent" | ProductId;
 export const STRUCT_KEYS: readonly StructKey[] = ["brent", "gasoline", "diesel", "jet"];
@@ -43,7 +48,6 @@ export type EffectTarget =
   | { kind: "crack"; product: ProductId }
   | { kind: "diff"; hub: HubId; product: ProductId }
   | { kind: "tce"; cls: VesselClass }
-  | { kind: "structure"; key: StructKey }
   | { kind: "stocks"; product: ProductId; region?: RegionId }
   | { kind: "util"; region: RegionId };
 
@@ -62,9 +66,15 @@ export interface MarketState {
   brent: number;
   brentH: number;
   cracks: Record<ProductId, number>;
+  /** crack = crackSlow + crackFast + crackOverlay (season and event shifts) */
+  crackSlow: Record<ProductId, number>;
+  crackFast: Record<ProductId, number>;
   diffs: Record<HubId, Record<ProductId, number>>;
   tce: Record<VesselClass, number>;
+  /** front spread per month implied by the curve, $/bbl (positive = backwardation); derived */
   structure: Record<StructKey, number>;
+  /** forward curves: expected spot by days ahead (rebuilt every business day) */
+  curve?: Curve;
   /** inventories by region vs 5-year seasonal average, % (positive = surplus) */
   stocks: Record<RegionId, Record<ProductId, number>>;
   /** refinery utilisation by region vs 5-year seasonal average, percentage points */
@@ -81,6 +91,8 @@ export interface MarketConfig {
   /** for analysis and tests: hold the regime / chokepoints fixed */
   freezeRegime?: boolean;
   freezeChoke?: boolean;
+  /** analysis only: skip building forward curves (pure price-path statistics) */
+  skipCurve?: boolean;
   /** historical replay: benchmark data by epoch day */
   replay?: Record<number, ReplayRow>;
 }
@@ -186,9 +198,11 @@ export function initMarket(scenario: Scenario, cfg: MarketConfig, startDay: numb
     brent: scenario.brent.value,
     brentH: b.omega.value / (1 - b.alpha.value - b.beta.value),
     cracks: { gasoline: scenario.cracks.gasoline.value, diesel: scenario.cracks.diesel.value, jet: scenario.cracks.jet.value },
+    crackSlow: { gasoline: 0, diesel: 0, jet: 0 },
+    crackFast: { gasoline: 0, diesel: 0, jet: 0 },
     diffs: emptyHubTable(),
     tce: { MR: scenario.freight.MR.value, LR1: scenario.freight.LR1.value, LR2: scenario.freight.LR2.value },
-    structure: { brent: scenario.structure.brent.value, gasoline: scenario.structure.gasoline.value, diesel: scenario.structure.diesel.value, jet: scenario.structure.jet.value },
+    structure: { brent: 0, gasoline: 0, diesel: 0, jet: 0 },
     stocks: Object.fromEntries(
       REGIONS.map((r) => [
         r,
@@ -210,7 +224,15 @@ export function initMarket(scenario: Scenario, cfg: MarketConfig, startDay: numb
   for (const [h, row] of Object.entries(scenario.diffOverrides ?? {})) {
     for (const [p, v] of Object.entries(row ?? {})) if (v) m.diffs[h as HubId][p as ProductId] = v.value;
   }
+  for (const p of PRODUCTS) m.crackSlow[p] = m.cracks[p] - crackOverlay(m, p, m.day);
+  refreshCurve(m, cfg);
   return m;
+}
+
+/** Rebuild the forward curves from the current state (after any change to it). */
+export function refreshCurve(m: MarketState, cfg: MarketConfig): void {
+  m.curve = buildCurve(m, cfg, { crackTarget, season, parity });
+  for (const k of STRUCT_KEYS) m.structure[k] = frontSpread(m.curve, k);
 }
 
 export function cloneMarket(m: MarketState): MarketState {
@@ -221,15 +243,45 @@ export function hubPrice(m: MarketState, hub: HubId, p: ProductId): number {
   return m.brent + m.cracks[p] + m.diffs[hub][p];
 }
 
-export function season(p: ProductId, day: number): number {
-  const c = MODEL.cracks[p].season.value;
-  const doy = dayOfYear(day);
-  let s = 0;
-  for (let j = 0; j < c.length / 2; j++) {
-    const w = (2 * Math.PI * (j + 1) * doy) / 365.25;
-    s += (c[2 * j] ?? 0) * cos(w) + (c[2 * j + 1] ?? 0) * sin(w);
+/** Mean the slow part of a crack reverts to: the regime level. */
+export function crackTarget(cfg: MarketConfig, r: Regime, p: ProductId): number {
+  return cfg.crackMean[r][p];
+}
+
+/**
+ * Part of a crack set by observable state on a day: the seasonal pattern, the US stock effect
+ * (calibrated as a same-week relation) and decaying event shifts.
+ */
+export function crackOverlay(m: MarketState, p: ProductId, day: number, stockUS = m.stocks.US[p]): number {
+  let s = season(p, day) + MODEL.fundamentals.crackPerStock[p].value * stockUS;
+  for (const e of m.effects) {
+    if (e.target.kind !== "crack" || e.target.product !== p) continue;
+    const age = day - e.startDay;
+    if (age >= 0) s += e.amount * exp((-age * 0.6931471805599453) / e.halfLifeDays);
   }
   return s;
+}
+
+const SEASON_CACHE: Record<string, number[]> = {};
+
+/** Seasonal crack pattern (2-harmonic Fourier in day of year), cached by day of year. */
+export function season(p: ProductId, day: number): number {
+  const doy = dayOfYear(day);
+  let tab = SEASON_CACHE[p];
+  if (!tab) {
+    tab = [];
+    const c = MODEL.cracks[p].season.value;
+    for (let d = 0; d <= 366; d++) {
+      let s = 0;
+      for (let j = 0; j < c.length / 2; j++) {
+        const w = (2 * Math.PI * (j + 1) * d) / 365.25;
+        s += (c[2 * j] ?? 0) * cos(w) + (c[2 * j + 1] ?? 0) * sin(w);
+      }
+      tab.push(s);
+    }
+    SEASON_CACHE[p] = tab;
+  }
+  return tab[doy]!;
 }
 
 export interface MarketStepNews {
@@ -303,9 +355,11 @@ export function stepMarket(m: MarketState, cfg: MarketConfig, rng: Rng): MarketS
   // stochastic jumps are added only in stressed/war regimes (avoids double-counting tails).
   // Normal-regime shocks come from the events engine.
   if (r !== "normal" && rng.bernoulli(B.jumpRate.value / 252)) ret += rng.laplace(B.jumpScale.value);
-  // Mean reversion of log price towards the regime level, with the volatility (Itô) correction
-  // so that the price level, not just the log, tracks the target in high-volatility regimes.
-  ret += B.levelKappa.value * (log(B.level[r].value) - log(m.brent)) + 0.5 * vm * vm * m.brentH;
+  // Mean reversion of log price towards the regime level. With log reversion speed κ and daily
+  // log variance σ², the stationary log price has mean log L + c/κ and variance ≈ σ²/(2κ), so
+  // E[price] = L·exp((c + σ²/4)/κ): a drift c = −σ²/4 makes the regime level the average price
+  // (c = 0 would make it the median; jumps count towards σ²).
+  ret += B.levelKappa.value * (log(B.level[r].value) - log(m.brent)) + brentDrift(brentVariance(r, m.brentH));
   const row = cfg.replay?.[m.day];
   if (cfg.replay) {
     // Replay: Brent follows the data; the variance filter still updates (for risk metrics)
@@ -319,20 +373,38 @@ export function stepMarket(m: MarketState, cfg: MarketConfig, rng: Rng): MarketS
     m.brent = Math.max(5, m.brent * exp(ret));
   }
 
-  // Cracks. Historical crack jumps (hurricanes, outages) hit products together, so jumps are a
-  // common shock with product-specific scale plus a smaller idiosyncratic part.
+  // Cracks: slow + fast parts with correlated shocks (a second draw for the fast part).
+  // Historical crack jumps (hurricanes, outages) hit products together and fade quickly, so
+  // jumps are a common shock to the fast part with a smaller idiosyncratic piece.
+  const e2 = [rng.normal(), rng.normal(), rng.normal(), rng.normal()];
+  const z2 = L.map((row) => row.reduce((s, l, k) => s + l * (e2[k] ?? 0), 0));
   const jumpRate = PRODUCTS.reduce((s, p) => s + MODEL.cracks[p].byRegime[r].jumpRate.value, 0) / PRODUCTS.length;
   const jumpDay = rng.bernoulli(jumpRate / 252);
   const common = jumpDay ? rng.laplace(1) : 0;
   PRODUCTS.forEach((p, i) => {
     const cp = MODEL.cracks[p].byRegime[r];
-    const mu = cfg.crackMean[r][p] + season(p, m.day) + MODEL.fundamentals.crackPerStock[p].value * m.stocks.US[p] + effectShift(m, (t) => t.kind === "crack" && t.product === p);
-    let x = m.cracks[p];
-    x += cp.kappa.value * (mu - x) + cp.sigma.value * sw * (z[i + 1] ?? 0);
-    if (jumpDay) x += 0.8 * common * cp.jumpScale.value + rng.laplace(0.2 * cp.jumpScale.value);
-    if (!cfg.replay) m.cracks[p] = x;
+    const mu = crackTarget(cfg, r, p);
+    const overlay = crackOverlay(m, p, m.day);
+    let fast = m.crackFast[p];
+    let slow = m.crackSlow[p];
+    slow += cp.slowKappa.value * (mu - slow);
+    fast -= cp.fastKappa.value * fast;
+    if (row) {
+      // Replay: the data give the total; split the surprise by the two parts' shock variances
+      const obs = row[p === "gasoline" ? "g" : p === "diesel" ? "d" : "j"];
+      const vf = cp.fastSigma.value * cp.fastSigma.value;
+      fast += ((obs - slow - fast - overlay) * vf) / (vf + cp.slowSigma.value * cp.slowSigma.value);
+      slow = obs - fast - overlay;
+      m.cracks[p] = obs;
+    } else {
+      slow += cp.slowSigma.value * sw * (z[i + 1] ?? 0);
+      fast += cp.fastSigma.value * sw * (z2[i + 1] ?? 0);
+      if (jumpDay) fast += 0.8 * common * cp.jumpScale.value + rng.laplace(0.2 * cp.jumpScale.value);
+      m.cracks[p] = slow + fast + overlay;
+    }
+    m.crackFast[p] = fast;
+    m.crackSlow[p] = slow;
   });
-  if (row) m.cracks = { gasoline: row.g, diesel: row.d, jet: row.j };
 
 
   // Freight (log TCE per class)
@@ -349,14 +421,6 @@ export function stepMarket(m: MarketState, cfg: MarketConfig, rng: Rng): MarketS
     lx += F.kappa.value * (target - lx) + F.sigma.value * rng.normal();
     if (rng.bernoulli(F.jumpRate.value / 252)) lx += rng.laplace(F.jumpScale.value);
     m.tce[c] = exp(lx);
-  }
-
-  // Curve structure
-  const S = MODEL.structure;
-  for (const k of STRUCT_KEYS) {
-    const stock = k === "brent" ? PRODUCTS.reduce((acc, p) => acc + globalStock(m, p), 0) / 3 : globalStock(m, k);
-    const mu = S.mean[r][k].value - MODEL.stocks.structureSlope.value * stock + effectShift(m, (t) => t.kind === "structure" && t.key === k);
-    m.structure[k] += S.kappa.value * (mu - m.structure[k]) + S.sigma.value * rng.normal();
   }
 
   // Regional differentials, in topological order of the price graph
@@ -415,17 +479,21 @@ export function stepMarket(m: MarketState, cfg: MarketConfig, rng: Rng): MarketS
       m.stocks[reg][p] += FD.utilToStock[p].value * m.util[reg] + flow - FD.stockKappa[p].value * m.stocks[reg][p] + FD.stockSigma[p].value * rng.normal() * (reg === "US" ? 1 : 0.8);
     }
   }
+  // Arb flows move barrels: stocks are % of each region's normal inventory, so the same
+  // barrels are a larger share of a smaller region's stocks (weights = relative sizes).
+  const w = FD.regionWeight.value;
   for (const f of flows) {
     if (f.into === f.from) continue;
     const q = FD.arbFlow.value * Math.max(-10, Math.min(f.excess, 10));
     m.stocks[f.into][f.product] += q;
-    m.stocks[f.from][f.product] -= q * 0.5;
+    m.stocks[f.from][f.product] -= (q * w[f.into]) / w[f.from];
   }
   if (row) {
     if (row.sg !== null) m.stocks.US.gasoline = row.sg;
     if (row.sd !== null) m.stocks.US.diesel = row.sd;
     if (row.sj !== null) m.stocks.US.jet = row.sj;
   }
+  if (!cfg.skipCurve) refreshCurve(m, cfg);
   return news;
 }
 

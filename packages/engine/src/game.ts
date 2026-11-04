@@ -48,9 +48,11 @@ import { productBblPerTonne, type ProductId } from "./core/units";
 import { applyTransitions, drawMacroEvents, fireEvent, type MacroContext, type MacroEventKind, type NewsItem, type PortDisruption } from "./events/macro";
 import { quoteRoute, vlsfoPrice, type VoyageQuote } from "./market/freight";
 import { FUTURES, listedMonths, type FuturesId } from "./market/futures";
+import { hubForward } from "./market/curve";
 import {
   cloneMarket,
   freightInputs,
+  refreshCurve,
   hubPrice,
   initMarket,
   makeConfig,
@@ -250,11 +252,7 @@ export class Game {
     const st = this.state;
     if (this.day >= st.startDay) return;
     st.history = [priceRow(this.market)];
-    while (this.day < st.startDay) {
-      const prev = cloneMarket(this.market);
-      this.marketDay();
-      void prev;
-    }
+    while (this.day < st.startDay) this.marketDay();
     const cutoff = st.startDay - 30;
     st.news = st.news.filter((n) => n.day >= cutoff || this.scenario.kind === "historical");
     st.news.push({ day: st.startDay, kind: "market", severity: "info", title: "Trading starts", body: this.scenario.kind === "generated" ? "A generated market: no real date or prices. The charts show the last three months." : "The charts show the run-up to today." });
@@ -266,7 +264,8 @@ export class Game {
   /** One market day: price step, scripted and random events, history. Returns whether it was a business day. */
   private marketDay(): boolean {
     const st = this.state;
-    const transitions = stepMarket(this.market, this.cfg, this.rMarket);
+    // the curves are rebuilt once, after the day's events
+    const transitions = stepMarket(this.market, { ...this.cfg, skipCurve: true }, this.rMarket);
     const biz = isBusinessDay(this.day);
     const ctx: MacroContext = { m: this.market, cfg: this.cfg, rng: this.rEvents, ports: st.ports, news: st.news, financeShock: st.financeShock };
     if (biz) {
@@ -274,6 +273,8 @@ export class Game {
       if (this.scenario.randomEvents) drawMacroEvents(ctx);
     }
     this.applyScript(ctx);
+    // events may have moved the state the curves are built from
+    if (biz) refreshCurve(this.market, this.cfg);
     st.financeShock = ctx.financeShock;
     if (biz) st.history.push(priceRow(this.market));
     st.ports = st.ports.filter((p) => p.untilDay >= this.day);
@@ -298,7 +299,6 @@ export class Game {
     let k = 0;
     const add = (target: MarketState["effects"][number]["target"], amount: number, hl: number) =>
       m.effects.push({ id: `sc${m.day}-${k++}-${m.effects.length}`, target, amount, halfLifeDays: hl, startDay: m.day });
-    for (const [key, a, hl] of ev.structure ?? []) add({ kind: "structure", key }, a, hl);
     for (const [cls, a, hl] of ev.tce ?? []) add({ kind: "tce", cls }, a, hl);
     for (const [hub, product, a, hl] of ev.diff ?? []) add({ kind: "diff", hub, product }, a, hl);
     for (const [product, a, hl] of ev.stocks ?? []) add({ kind: "stocks", product, region: "US" }, (a * 0.6931471805599453) / hl, hl);
@@ -309,12 +309,10 @@ export class Game {
 
   /** Date label: real dates for snapshots and replays; "Year n" for generated worlds. */
   displayDate(day = this.day): string {
-    const iso = isoDate(day);
     const base = this.scenario.displayYearBase;
     const d = new Date(day * 86_400_000);
     const mon = d.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
     if (!base) return `${d.getUTCDate()} ${mon} ${d.getUTCFullYear()}`;
-    void iso;
     return `${d.getUTCDate()} ${mon}, Year ${d.getUTCFullYear() - base + 1}`;
   }
 
@@ -422,7 +420,7 @@ export class Game {
       if (e.key === "brent") sigma = m.brent * sqrt(m.brentH) * MODEL.brent.volMult[r].value;
       else if (e.key.startsWith("crack:")) sigma = MODEL.cracks[e.key.slice(6) as ProductId].byRegime[r].sigma.value;
       else if (e.key.startsWith("diff:")) sigma = MODEL.regional.sigma.value * (r === "normal" ? 1 : 1.6);
-      else sigma = MODEL.structure.sigma.value * 3;
+      else sigma = MODEL.structure.slopeSigma.value;
       v += (e.bbl * sigma) ** 2;
     }
     return 2.33 * sqrt(v);
@@ -730,7 +728,7 @@ export class Game {
     const res = negotiate(Rng.stream(this.state.seed, `neg:${o.id}:${o.rounds}`), o, diff, c, this.state.relations[c.id]?.score ?? 0);
     const reprice = (d: number) => {
       o.pricing.diff = d;
-      o.indicative = (o.pricing.kind === "fixed" ? o.pricing.fixedPrice! : hubPrice(this.market, o.hub, o.product)) + d;
+      o.indicative = (o.pricing.kind === "fixed" ? o.pricing.fixedPrice! : hubForward(this.market, o.hub, o.product, Math.round((o.laycan[0] + o.laycan[1]) / 2))) + d;
     };
     const fmt = (d: number) => `index ${d >= 0 ? "+" : ""}${d.toFixed(2)}`;
     if (res.outcome === "accepted") {
@@ -905,11 +903,14 @@ export class Game {
   }
 
   private setDelivery(d: Deal, anchor: number) {
-    d.deliveryDay = this.day;
-    if (d.pricing.kind === "bl5" || d.pricing.kind === "post5") {
-      d.window = this.windowFor(d, anchor);
-      this.post("optionality", () => this.retroFix(d));
-    }
+    // The actual delivery date and pricing window replace the expected ones: timing optionality
+    this.post("optionality", () => {
+      d.deliveryDay = this.day;
+      if (d.pricing.kind === "bl5" || d.pricing.kind === "post5") {
+        d.window = this.windowFor(d, anchor);
+        this.retroFix(d);
+      }
+    });
     const last = d.window && d.window.length ? d.window[d.window.length - 1]! : this.day;
     d.dueDay = Math.max(this.day + d.payment.days, last + 1);
   }
@@ -1018,7 +1019,7 @@ export class Game {
     v.chokepoints = [...(routeById(v.routeId).variants.find((x) => x.via === alt.via)?.chokepoints ?? [])];
     v.pathNm = alt.distanceNm;
     v.sailDays += extraDays;
-    if (v.arriveDisch !== undefined) v.arriveDisch += extraDays;
+    if (v.arriveDisch !== undefined) this.setArrival(v, v.arriveDisch + extraDays);
     this.alert(`Voyage ${v.id} rerouted via ${alt.via}`, `A chokepoint on the planned route closed. +${extraDays} days, deviation cost ${(extraCost / 1e3).toFixed(0)}k.`, "warn");
     return true;
   }
@@ -1065,7 +1066,7 @@ export class Game {
         if (day < (v.arriveDisch ?? day)) {
           const passed = day - (v.blDay ?? day) > v.sailDays / 2;
           if (!passed && this.chokeBlocked(v) && !this.reroute(v)) {
-            v.arriveDisch = (v.arriveDisch ?? day) + 1;
+            this.setArrival(v, (v.arriveDisch ?? day) + 1);
             this.holdDay(v, "A chokepoint ahead is closed and there is no alternative route. The cargo is stranded until it reopens.");
           }
           return false;
@@ -1129,17 +1130,29 @@ export class Game {
     if (v.saleId) {
       const s = this.book.deals.find((x) => x.id === v.saleId);
       if (s && s.incoterm === "CIF" && s.status === "open" && (s.pricing.kind === "bl5" || s.pricing.kind === "post5")) {
-        s.window = this.windowFor(s, this.day);
-        this.post("optionality", () => this.retroFix(s));
+        this.post("optionality", () => {
+          s.window = this.windowFor(s, this.day);
+          this.retroFix(s);
+        });
       }
     }
     // The cargo now belongs to the destination market: the location spread is captured here.
     const c = cargo;
     this.post("regional", () => {
       c.hub = v.to;
+      c.markDay = this.day + v.sailDays;
     });
     v.status = "sailing";
     v.arriveDisch = this.day + v.sailDays;
+  }
+
+  /** Move a voyage's arrival date; the cargo's forward mark moves with it. */
+  private setArrival(v: Voyage, day: number, bucket: Bucket = "events") {
+    const c = this.book.cargoes.find((x) => x.id === v.cargoId);
+    this.post(bucket, () => {
+      v.arriveDisch = day;
+      if (c && c.where === "vessel") c.markDay = day;
+    });
   }
 
   private discharge(v: Voyage) {
@@ -1170,7 +1183,9 @@ export class Game {
       this.deliverSale(sale, c, anchor);
     }
     if (this.book.cargoes.includes(c)) {
+      // arrival was the mark date, so moving from the forward mark to spot changes nothing
       c.where = "tank";
+      c.markDay = undefined;
       c.voyageId = undefined;
       c.sinceDay = this.day;
       this.alert(`Cargo ${c.id} into tank at ${v.to}`, `${(c.qty / 1000).toFixed(0)} kbbl ${c.product} stored. Leased tankage is used first; anything above it pays spot tankage (${this.spotStorageFee(v.to).toFixed(2)} $/bbl/month).`, "info");
@@ -1303,7 +1318,9 @@ export class Game {
       const extraDays = (remaining - remainingOld) / perDay;
       const warRisk = newChokes.reduce((s, k) => s + (CHOKEPOINT_INFO[k].warRiskPctHull[this.market.choke[k]].value / 100) * spec.hullValueUsd.value, 0);
       const cost = DIVERSION.fee.value + Math.max(0, extraDays) * (this.market.tce[v.cls] + spec.seaConsumptionTpd.value * vlsfo) + warRisk;
-      const priceGain = hubPrice(this.market, to, c.product) - hubPrice(this.market, v.to, c.product);
+      // forward value at the new hub on the new arrival date vs the current mark
+      const arrive = this.day + Math.max(1, Math.ceil(remaining / perDay));
+      const priceGain = hubForward(this.market, to, c.product, arrive) - hubForward(this.market, v.to, c.product, c.markDay ?? this.day);
       out.push({
         option: {
           to,
@@ -1336,8 +1353,11 @@ export class Game {
       this.book.cash -= opt.costUsd;
     });
     // The cargo now belongs to the new market: the value of the destination option is realised here
+    const arrive = this.day + Math.max(1, Math.ceil(opt.remainingDays));
     this.post("optionality", () => {
       c.hub = to;
+      c.markDay = arrive;
+      v.arriveDisch = arrive;
     });
     if (v.saleId) {
       const s = this.book.deals.find((x) => x.id === v.saleId);
@@ -1354,8 +1374,7 @@ export class Game {
     v.pathNm = plan.remainingNm;
     v.legStartDay = this.day;
     v.legStartFrac = 0;
-    v.arriveDisch = this.day + Math.max(1, remainingDays);
-    v.sailDays = v.arriveDisch - (v.blDay ?? this.day);
+    v.sailDays = arrive - (v.blDay ?? this.day);
     return {
       ok: true,
       message: `${v.id} diverted to ${to}: arrives in ~${remainingDays} days; deviation cost ${(opt.costUsd / 1e3).toFixed(0)}k; price at ${to} ${opt.priceGainPerBbl >= 0 ? "+" : ""}${opt.priceGainPerBbl.toFixed(2)} $/bbl vs ${v.divertedFrom}.`,

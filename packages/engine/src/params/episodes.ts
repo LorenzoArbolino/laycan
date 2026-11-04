@@ -58,10 +58,10 @@ export const EPISODES: EpisodeSpec[] = [
     regimeBefore: "normal",
     choke: { hormuz: "open", babelmandeb: "open", suez: "open" },
     script: [
-      { date: "2019-09-16", severity: "critical", title: "Attack on Abqaiq and Khurais knocks out ~5.7 mb/d of Saudi output", body: "Drones and missiles hit the world's largest crude processing plant on 14 Sep. Brent posts a record one-day jump.", diff: [["MEG", "diesel", 3, 10], ["MEG", "jet", 3, 10]], structure: [["brent", 1.5, 10]] },
+      { date: "2019-09-16", severity: "critical", title: "Attack on Abqaiq and Khurais knocks out ~5.7 mb/d of Saudi output", body: "Drones and missiles hit the world's largest crude processing plant on 14 Sep. Brent posts a record one-day jump.", diff: [["MEG", "diesel", 3, 10], ["MEG", "jet", 3, 10]] },
       { date: "2019-09-17", title: "Saudi Aramco: output to be fully restored by end-September", severity: "info" },
       { date: "2019-09-26", severity: "warn", title: "US sanctions COSCO tanker subsidiaries; tanker rates spike", body: "A large slice of the fleet becomes untouchable for many charterers.", tce: [["MR", 0.35, 25], ["LR1", 0.45, 25], ["LR2", 0.5, 25]] },
-      { date: "2019-10-14", title: "IMO 2020 approaches: the 0.5% sulphur cap lifts demand for low-sulphur fuels and gasoil", severity: "info", structure: [["diesel", 0.6, 60]] },
+      { date: "2019-10-14", title: "IMO 2020 approaches: the 0.5% sulphur cap lifts demand for low-sulphur fuels and gasoil", severity: "info" },
       { date: "2020-01-01", severity: "warn", title: "IMO 2020 takes effect: ships must burn 0.5% sulphur fuel or install scrubbers" },
     ],
   },
@@ -76,7 +76,7 @@ export const EPISODES: EpisodeSpec[] = [
       { date: "2008-09-15", severity: "warn", title: "Gulf Coast refineries restart after Hurricane Ike (landfall 13 Sep)", port: ["USGC", 3] },
       { date: "2008-10-03", title: "US Congress passes the $700bn TARP bank rescue", severity: "info" },
       { date: "2008-10-24", title: "OPEC agrees to cut output by 1.5 mb/d", severity: "warn" },
-      { date: "2008-11-24", severity: "warn", title: "Contango deepens; storing oil (even at sea) starts to pay (approx.)", structure: [["brent", -1.2, 60], ["diesel", -1, 60], ["gasoline", -1, 60], ["jet", -1, 60]] },
+      { date: "2008-11-24", severity: "warn", title: "Contango deepens; storing oil (even at sea) starts to pay (approx.)" },
       { date: "2008-12-17", severity: "warn", title: "OPEC agrees a further 2.2 mb/d output cut" },
       { date: "2009-01-12", severity: "warn", title: "Floating storage builds as traders lock in the contango (approx.)", tce: [["LR1", 0.3, 40], ["LR2", 0.3, 40]] },
     ],
@@ -90,11 +90,11 @@ export const EPISODES: EpisodeSpec[] = [
     script: [
       { date: "2020-03-06", severity: "warn", title: "OPEC+ talks collapse; Saudi Arabia launches a price war" },
       { date: "2020-03-09", severity: "critical", title: "Brent suffers its biggest one-day fall since 1991", regime: "stressed" },
-      { date: "2020-03-11", severity: "critical", title: "WHO declares a pandemic; lockdowns spread and jet demand collapses", structure: [["jet", -2, 60], ["gasoline", -1.5, 45], ["diesel", -1, 45], ["brent", -1, 45]] },
+      { date: "2020-03-11", severity: "critical", title: "WHO declares a pandemic; lockdowns spread and jet demand collapses" },
       { date: "2020-04-01", severity: "warn", title: "Floating storage absorbs tankers; clean freight spikes (approx.)", tce: [["MR", 0.4, 30], ["LR1", 0.6, 30], ["LR2", 0.6, 30]] },
       { date: "2020-04-13", severity: "warn", title: "OPEC+ agrees a record 9.7 mb/d output cut (12 Apr)" },
-      { date: "2020-04-20", severity: "critical", title: "WTI May futures settle at −$37.63: US storage is nearly full", structure: [["brent", -2, 30]] },
-      { date: "2020-05-01", severity: "warn", title: "OPEC+ output cuts take effect; lockdowns begin to ease", structure: [["brent", 1.5, 30]] },
+      { date: "2020-04-20", severity: "critical", title: "WTI May futures settle at −$37.63: US storage is nearly full" },
+      { date: "2020-05-01", severity: "warn", title: "OPEC+ output cuts take effect; lockdowns begin to ease" },
     ],
   },
   {
@@ -119,11 +119,11 @@ export const EPISODES: EpisodeSpec[] = [
     regimeBefore: "normal",
     choke: { hormuz: "open", babelmandeb: "open", suez: "open" },
     script: [
-      { date: "2022-02-24", severity: "critical", title: "Russia invades Ukraine", body: "Buyers shun Russian diesel; Europe scrambles for replacement barrels.", regime: "war", diff: [["ARA", "diesel", 4, 60]], structure: [["diesel", 3, 60], ["brent", 2, 45]] },
-      { date: "2022-03-01", severity: "warn", title: "IEA members agree a 60 mb emergency stock release", structure: [["brent", -0.8, 20]] },
+      { date: "2022-02-24", severity: "critical", title: "Russia invades Ukraine", body: "Buyers shun Russian diesel; Europe scrambles for replacement barrels.", regime: "war", diff: [["ARA", "diesel", 4, 60]] },
+      { date: "2022-03-01", severity: "warn", title: "IEA members agree a 60 mb emergency stock release" },
       { date: "2022-03-08", severity: "critical", title: "US bans imports of Russian oil; Brent spot near record highs" },
       { date: "2022-03-14", severity: "warn", title: "Self-sanctioning reshuffles product tanker trade; MR rates jump (approx.)", tce: [["MR", 0.4, 60], ["LR1", 0.3, 60]] },
-      { date: "2022-03-31", severity: "warn", title: "US announces a 1 mb/d SPR release for six months", structure: [["brent", -1, 30]] },
+      { date: "2022-03-31", severity: "warn", title: "US announces a 1 mb/d SPR release for six months" },
       { date: "2022-06-03", severity: "warn", title: "EU adopts its sixth sanctions package: phased embargo on Russian crude and products", diff: [["ARA", "diesel", 2, 60]] },
     ],
   },
@@ -164,7 +164,7 @@ export const EPISODES: EpisodeSpec[] = [
       { date: "2026-02-28", severity: "critical", title: "US and Israel strike Iran", regime: "war" },
       { date: "2026-03-02", severity: "critical", title: "Strait of Hormuz effectively closed: insurers withdraw cover, tankers struck (approx.)", choke: ["hormuz", "closed"], tce: [["LR1", 0.5, 60], ["LR2", 0.6, 60]] },
       { date: "2026-03-09", severity: "warn", title: "Brent spot above $100 for the first time since 2022 (8 Mar)" },
-      { date: "2026-03-16", severity: "warn", title: "IEA coordinates a 400 mb emergency stock release (approx.)", structure: [["brent", -1.5, 30]] },
+      { date: "2026-03-16", severity: "warn", title: "IEA coordinates a 400 mb emergency stock release (approx.)" },
       { date: "2026-03-16", severity: "warn", title: "China halts new product export deals (approx.)", diff: [["SIN", "diesel", 3, 40], ["SIN", "jet", 3, 40]] },
       { date: "2026-04-13", severity: "warn", title: "Ceasefire: Hormuz partially reopens under escort (approx.)", choke: ["hormuz", "restricted"] },
       { date: "2026-04-20", severity: "warn", title: "Europe's jet scare: warnings of only weeks of jet stocks (approx.)", diff: [["ARA", "jet", 3, 20]] },
@@ -185,7 +185,6 @@ export function makeHistoricalScenario(id: string): Scenario {
   const normal = SCENARIOS.normal_2025!;
   const r = spec.regimeBefore;
   const fr = MODEL.freight.mean[r];
-  const st = MODEL.structure.mean[r];
   const stock = (v: number | null, p: string): Param => (v === null ? est(0, "%", "no stock data: assumed average") : fromData(v, "%", `US ${p} stocks vs 5-year same-week mean`, first.t));
   return {
     id: spec.id,
@@ -218,7 +217,6 @@ export function makeHistoricalScenario(id: string): Scenario {
       babelmandeb: est({}, "prob/day", "replay: chokepoints change only by script"),
       suez: est({}, "prob/day", "replay: chokepoints change only by script"),
     },
-    structure: { brent: st.brent, gasoline: st.gasoline, diesel: st.diesel, jet: st.jet },
     finance: normal.finance,
     eventRates: normal.eventRates,
     news: [],

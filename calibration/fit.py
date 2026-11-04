@@ -415,6 +415,35 @@ def main() -> None:
             jm = np.abs(resid) > 4.5 * rs
             fund[p]["ex_stock_kappa"] = P(float(np.clip(kappa, 0.004, 0.2)), "1/day", "derived", src_wpsr + "; EIA spot via FRED", "AR(1) on the normal-regime crack minus slope × stock deviation")
             fund[p]["ex_stock_sigma"] = P(float(np.std(resid[~jm])), "$/bbl/day", "derived", src_wpsr + "; EIA spot via FRED", "sd of non-jump residuals of that AR(1)")
+            # Two speeds: the autocorrelation of the deseasonalised crack decays fast at first
+            # and slowly after (a physical basis that clears in days on top of a fundamental
+            # level that moves over months). Fit ACF(k) = w·exp(-kf·k) + (1-w)·exp(-ks·k) on
+            # long normal blocks; a single AR(1) misses the persistence at monthly horizons.
+            exn = cracks[p] - g * sdd
+            acfs, wts, var = [], [], []
+            for a, b in [("2010-01-01", "2019-12-31"), ("2023-01-01", "2025-12-31")]:
+                seg = exn[(exn.index >= a) & (exn.index <= b)].dropna()
+                doy = seg.index.dayofyear.values
+                X = np.column_stack([np.ones(len(seg))] + [f(2 * np.pi * k * doy / 365.25) for k in (1, 2) for f in (np.cos, np.sin)])
+                beta, *_ = np.linalg.lstsq(X, seg.values, rcond=None)
+                r = seg.values - X @ beta
+                r = r - r.mean()
+                v = float(np.dot(r, r))
+                acfs.append([float(np.dot(r[k:], r[:-k]) / v) for k in range(1, 251)])
+                wts.append(len(r))
+                var.append(v / len(r))
+            acf_d = np.average(np.array(acfs), axis=0, weights=wts)
+            lags = np.arange(1, 251)
+            from scipy.optimize import least_squares
+            sol = least_squares(lambda q: q[0] * np.exp(-q[1] * lags) + (1 - q[0]) * np.exp(-q[2] * lags) - acf_d, [0.4, 0.1, 0.01], bounds=([0, 0.02, 0.0005], [1, 2, 0.05]))
+            w2, kf, ks = (float(v) for v in sol.x)
+            src2 = src_wpsr + "; EIA spot via FRED"
+            meth = "ACF(k) = w·exp(-kf·k) + (1-w)·exp(-ks·k), k = 1..250 business days, deseasonalised normal-regime crack net of stocks, 2010-2019 and 2023-2025"
+            fund[p]["fast_share"] = P(w2, "share of variance", "derived", src2, meth)
+            fund[p]["fast_kappa"] = P(kf, "1/business day", "derived", src2, meth)
+            fund[p]["slow_kappa"] = P(ks, "1/business day", "derived", src2, meth)
+            fund[p]["deviation_var"] = P(float(np.average(var, weights=wts)), "($/bbl)^2", "derived", src2, "variance of that deseasonalised series (block means removed)")
+            targets.setdefault("crack_acf", {})[p] = {f"lag{k}": float(acf_d[k - 1]) for k in (1, 5, 21, 63, 126)}
         params["fundamentals"] = fund
         report["fundamentals"] = {k: (v["value"] if "value" in v else {kk: vv["value"] for kk, vv in v.items()}) for k, v in fund.items()}
     except FileNotFoundError:

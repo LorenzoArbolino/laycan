@@ -9,9 +9,7 @@
  *    before the delivery month (e.g. Jan-27: 30 Nov 2026)
  */
 import { addMonths, businessDaysBefore, fromYmd, isBusinessDay, lastBusinessDay, MONTH_CODES, ymd } from "../core/calendar";
-import { pow } from "../core/dmath";
 import type { ProductId } from "../core/units";
-import { MODEL } from "../params/model";
 import type { HubId } from "../world/world";
 
 export type FuturesId = "RB" | "HO" | "GO" | "BRN";
@@ -81,19 +79,6 @@ export function listedMonths(id: FuturesId, day: number, n = 6): ContractMonth[]
     if (e >= day) out.push({ id, y: t.y, m: t.m, code: contractCode(id, t.y, t.m), expiry: e });
   }
   return out;
-}
-
-const DAYS_PER_MONTH = 30.4375;
-
-/** Cumulative curve discount factor g(τ) = (1 − d^τ)/(1 − d) for τ months to expiry. */
-export function curveFactor(monthsToExpiry: number): number {
-  const d = MODEL.structure.decay.value;
-  const t = Math.max(0, monthsToExpiry);
-  return (1 - pow(d, t)) / (1 - d);
-}
-
-export function monthsTo(expiry: number, day: number): number {
-  return Math.max(0, (expiry - day) / DAYS_PER_MONTH);
 }
 
 export { isBusinessDay };

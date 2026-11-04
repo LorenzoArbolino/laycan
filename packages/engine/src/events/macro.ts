@@ -42,7 +42,12 @@ function addEffect(ctx: MacroContext, target: MarketState["effects"][number]["ta
   ctx.m.effects.push({ id: `fx${ctx.m.day}-${ctx.m.effects.length}`, target, amount, halfLifeDays, startDay: ctx.m.day });
 }
 
+/**
+ * A crack shock: the crack moves by `jump` today; `shift` of it lasts and decays with half-life
+ * hl, the rest clears like a physical basis within days (if shift > jump, the crack climbs to it).
+ */
 function crackShock(ctx: MacroContext, p: ProductId, jump: number, shift: number, hl: number) {
+  ctx.m.crackFast[p] += jump - shift;
   ctx.m.cracks[p] += jump;
   addEffect(ctx, { kind: "crack", product: p }, shift, hl);
 }
@@ -166,8 +171,7 @@ export function fireEvent(ctx: MacroContext, kind: MacroEventKind, variant?: str
     case "emergencyRelease": {
       const j = between(rng, 0.03, 0.08);
       m.brent *= 1 - j;
-      addEffect(ctx, { kind: "structure", key: "brent" }, -1.5, 30);
-      news(ctx, "info", "Coordinated emergency stock release", `IEA members release strategic stocks. Brent −${(j * 100).toFixed(0)}%, backwardation eases.`);
+      news(ctx, "info", "Coordinated emergency stock release", `IEA members release strategic stocks. Brent −${(j * 100).toFixed(0)}%.`);
       return;
     }
     case "gasSwitching": {

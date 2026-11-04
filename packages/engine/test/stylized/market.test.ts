@@ -7,7 +7,19 @@ import targets from "../../../../params/targets.json" with { type: "json" };
 import { MODEL } from "../../src/params/model";
 import { acf, ar1HalfLife, corr, excessKurtosis, simulate, parity } from "./helpers";
 
+const dev: Record<"gasoline" | "diesel" | "jet", number[]> = { gasoline: [], diesel: [], jet: [] };
 const normal = simulate({ scenario: "normal_2025", regime: "normal", years: 25, seed: "stylized-normal" });
+// The slow part of a crack has a half-life of months, so its autocorrelation needs a long path.
+// Recorded: the stochastic part of each crack (net of season, stocks and events), as fitted.
+simulate({
+  scenario: "normal_2025",
+  regime: "normal",
+  years: 100,
+  seed: "stylized-acf",
+  onDay: (m) => {
+    for (const p of ["gasoline", "diesel", "jet"] as const) dev[p].push(m.crackSlow[p] + m.crackFast[p]);
+  },
+});
 const war = simulate({ scenario: "now_2026_11", regime: "war", years: 10, seed: "stylized-war" });
 const logret = (rows: typeof normal) => rows.slice(1).map((r, i) => Math.log(r.brent / rows[i]!.brent));
 
@@ -32,13 +44,33 @@ describe("Brent", () => {
   });
 });
 
+describe("Brent level by regime", () => {
+  // The volatility correction (drift −σ²/4 with log reversion κ) makes the regime level the
+  // long-run average price. With the opposite sign, frozen regimes averaged $80 / $151 / $143
+  // against targets of $75 / $60 / $110, and a stressed spell rallied.
+  for (const [regime, tol] of [["normal", 0.05], ["stressed", 0.12], ["war", 0.1]] as const) {
+    it(`averages its regime level (${regime})`, () => {
+      const xs: number[] = [];
+      for (let s = 0; s < 40; s++) {
+        const rows = simulate({ scenario: "now_2026_11", regime, years: 6, seed: `lv-${regime}-${s}` });
+        for (const r of rows.slice(252)) xs.push(r.brent);
+      }
+      const avg = xs.reduce((a, b) => a + b, 0) / xs.length;
+      const L = MODEL.brent.level[regime].value;
+      expect(Math.abs(avg / L - 1), `${regime}: average ${avg.toFixed(1)} vs level ${L}`).toBeLessThan(tol);
+    });
+  }
+});
+
 describe("cracks", () => {
   for (const p of ["gasoline", "diesel", "jet"] as const) {
-    it(`${p} crack mean-reverts with a half-life near history`, () => {
-      const hl = ar1HalfLife(normal.map((x) => x.cracks[p]));
-      const hist = targets.cracks[p].half_life_days;
-      expect(hl).toBeGreaterThan(hist * 0.4);
-      expect(hl).toBeLessThan(hist * 2.5);
+    it(`${p} crack has two speeds: autocorrelation at 1 week, 1 month and 3 months near history`, () => {
+      // a single AR(1) with the 1-day persistence would give almost no memory at 3 months
+      const x = dev[p];
+      const tgt = targets.crack_acf[p];
+      for (const [lag, key] of [[1, "lag1"], [5, "lag5"], [21, "lag21"], [63, "lag63"]] as const) {
+        expect(Math.abs(acf(x, lag) - tgt[key])).toBeLessThan(0.15);
+      }
     });
   }
   it("gasoline is seasonally stronger in summer than in winter", () => {

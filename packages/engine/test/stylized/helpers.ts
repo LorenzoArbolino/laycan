@@ -5,7 +5,8 @@ import { SCENARIOS, type Regime } from "../../src/params/model";
 
 export function simulate(opts: { scenario: string; regime: Regime; years: number; seed: string; freezeChoke?: boolean; onDay?: (m: MarketState, cfg: ReturnType<typeof makeConfig>) => void }): PriceRow[] {
   const sc = { ...SCENARIOS[opts.scenario]!, regime: opts.regime };
-  const cfg = { ...makeConfig(sc), freezeRegime: true, freezeChoke: opts.freezeChoke ?? true };
+  // price-path statistics only: forward curves are not needed
+  const cfg = { ...makeConfig(sc), freezeRegime: true, freezeChoke: opts.freezeChoke ?? true, skipCurve: true };
   const m = initMarket(sc, cfg, parseDate(sc.startDate));
   const rng = Rng.stream(opts.seed, "market");
   const rows: PriceRow[] = [];

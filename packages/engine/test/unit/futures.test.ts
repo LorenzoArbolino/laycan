@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isoDate, parseDate } from "../../src/core/calendar";
-import { curveFactor, expiryDay, listedMonths } from "../../src/market/futures";
+import { expiryDay, listedMonths } from "../../src/market/futures";
 
 // Expiry dates checked against the exchanges' listed expiry ladders (Oct 2026)
 describe("futures expiry rules", () => {
@@ -25,10 +25,5 @@ describe("futures expiry rules", () => {
     const go = listedMonths("GO", d);
     expect(go[0]!.code).toBe("GOZ26");
     expect(go.every((c) => c.expiry >= d)).toBe(true);
-  });
-  it("curve factor is 0 at expiry and increasing, concave", () => {
-    expect(curveFactor(0)).toBe(0);
-    expect(curveFactor(1)).toBeCloseTo(1, 10);
-    expect(curveFactor(2) - curveFactor(1)).toBeLessThan(curveFactor(1) - curveFactor(0));
   });
 });
