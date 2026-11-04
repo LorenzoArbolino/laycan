@@ -1,9 +1,13 @@
 name: pages
 
-# Builds the web app and publishes it to GitHub Pages on every push to main.
+# Publishes the web app to GitHub Pages once the ci workflow (data guard, typecheck, unit
+# tests, build and browser tests) has passed for a push to main. The deployed commit is the
+# one ci tested. A manual run deploys the head of main as it is.
 # One-time setup: repository Settings → Pages → Source: "GitHub Actions".
 on:
-  push:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -18,15 +22,17 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm test
       - run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

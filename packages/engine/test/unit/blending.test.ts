@@ -28,7 +28,8 @@ describe("linear programming", () => {
         if (r.status !== "optimal") return;
         let best = Infinity;
         for (let i = 0; i <= 50; i++) for (let j = 0; j <= 50 - i; j++) best = Math.min(best, c[0]! * (i / 50) * cap + c[1]! * (j / 50) * cap);
-        expect(r.value).toBeLessThanOrEqual(best + 1e-9);
+        // the solver treats reduced costs within 1e-9 of zero as optimal: allow that per unit of x
+        expect(r.value).toBeLessThanOrEqual(best + 1e-9 * (1 + 2 * cap));
       }),
     );
   });
