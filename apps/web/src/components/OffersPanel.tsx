@@ -1,3 +1,4 @@
+import { Tips } from "./Tips";
 import { useState } from "react";
 import { useState as useLocalState } from "react";
 import { PRICING_INFO, ROSTER, ROUTES, hubPrice, isoDate, perBbl, type Action, type Game, type HubId, type Offer, type Tender } from "@laycan/engine";
@@ -114,10 +115,37 @@ export function OffersPanel({ game, act, hub, clearHub }: { game: Game; act: (a:
   const offers = game.state.offers.filter((o) => !hub || o.hub === hub);
   return (
     <div>
-      <p className="hint">
-        Counterparties offer cargoes (you buy) and bid for them (you sell). Prices float on the hub index plus a premium or discount. For each FOB purchase the arb shows destination − origin − premium − freight at today's prices; pricing
-        happens later, so the real outcome will differ. ITT = in-tank transfer: a prompt parcel inside a terminal, the raw material of storage plays.
-      </p>
+      <Tips
+        id="offers"
+        tips={[
+          <>
+            Counterparties offer cargoes (you buy) and bid for them (you sell). Prices float on the hub index plus a premium or discount. For each FOB purchase the arb shows destination − origin − premium − freight at today's
+            prices; pricing happens later, so the real outcome will differ. ITT = in-tank transfer: a prompt parcel inside a terminal, the raw material of storage plays.
+          </>,
+          <>
+            <b>Where title passes.</b> FOB: at the load port, onto a ship you charter (you buy FOB at an exporting hub). DES: on arrival at the buyer's port (you sell DES at an importing hub, so you must get a cargo
+            there inside the buyer's laycan). CIF: you ship it, priced around loading. ITT: inside a tank at the hub.
+          </>,
+          <>
+            <b>Line up the laycans.</b> A cargo bought FOB loads inside its laycan; add the sailing days (Freight tab) and a few days of slack, and check it lands inside the sale's laycan. Late delivery costs $0.50/bbl and
+            goodwill; no delivery at all costs $3/bbl.
+          </>,
+          <>
+            <b>Match the quantities.</b> A sale must be filled within its tolerance (usually ±5%). Buying a cargo smaller than the sale's minimum leads to a short-delivery penalty.
+          </>,
+          <>
+            <b>Price risk starts when the price fixes.</b> A fixed-price deal is exposed from today; a floating one only during its pricing window. Hedge what is priced, in the month it prices (Book → Exposure).
+          </>,
+          <>
+            <b>Negotiate.</b> Counter with a better premium: patient counterparties meet you halfway, impatient ones walk. Tenders are sealed bids against hidden competitors: bid what the cargo is worth to you, not
+            what you hope to pay.
+          </>,
+          <>
+            <b>Wait for the green.</b> Hub prices usually sit just inside freight parity, so most routes lose money most weeks. Shipping on every bid loses; trading only when the arb covers freight, financing and a margin
+            earns.
+          </>,
+        ]}
+      />
       {hub && (
         <span className="filter-chip">
           Showing {hub} only{" "}

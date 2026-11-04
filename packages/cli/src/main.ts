@@ -118,7 +118,8 @@ Commands
   cpty                           counterparties, ratings and relationships
   divert <voyageId> [hub]        list diversion options, or divert a laden ship to another hub
   blend <hub> [kbbl]             show the optimal gasoline blend, or blend into your leased tank
-  --weeks <n>                    game length for generated markets (default 12)
+  --weeks <n|open>               game length for generated markets (default 12; open = no end)
+  end                            end the game now and show the score
   fut <RB|HO|GO|BRN> <month#> <lots>       trade futures (month# 0 = front; lots < 0 to sell)
   curve                          futures curves
   quote <buy|sell> <product> <hub> <FOB|DES|CIF>   ask the market for a quote
@@ -136,7 +137,10 @@ async function play() {
   if (load) {
     const fs = await import("node:fs");
     g = Game.fromJSON(fs.readFileSync(load, "utf8"));
-  } else g = Game.create({ scenario, seed, weeks: scenario === "generated" ? Number(opt("weeks", "12")) : undefined });
+  } else {
+    const w = opt("weeks", "12");
+    g = Game.create({ scenario, seed, weeks: scenario === "generated" && w !== "open" ? Number(w) : undefined, openEnded: w === "open" });
+  }
   const sc = g.scenario;
   console.log(`\nLAYCAN — ${sc.name}\nSeed ${g.state.seed}. ${sc.description}\n`);
   for (const n of g.state.news) console.log(`  • ${n.title}`);
@@ -269,6 +273,9 @@ async function handle(g: Game, c: string, a: string[]): Promise<void> {
       return;
     case "quote":
       console.log(g.act({ type: "quote", side: a[0] as "buy" | "sell", product: a[1] as ProductId, hub: a[2] as HubId, incoterm: (a[3] ?? "FOB") as "FOB" }).message);
+      return;
+    case "end":
+      g.end();
       return;
     case "n":
     case "next": {

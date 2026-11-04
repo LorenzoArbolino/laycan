@@ -30,7 +30,7 @@ const projection = geoNaturalEarth1().fitExtent(
     [6, 6],
     [W - 6, H - 6],
   ],
-  { type: "MultiPoint", coordinates: [[-100, 55], [146, 55], [-100, -36], [146, -36]] },
+  { type: "MultiPoint", coordinates: [[-104, 63], [150, 63], [-104, -38], [150, -38]] },
 );
 const path = geoPath(projection);
 const pt = (c: [number, number]) => projection(c) ?? [0, 0];

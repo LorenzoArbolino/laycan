@@ -108,7 +108,36 @@ test("the manual opens in the app and its contents links work; Japan is on the m
   await expect(manual).toContainText("Laycan — game manual");
   await manual.getByRole("link", { name: "Blending" }).first().click();
   await expect(manual.locator('[id="12-blending"]')).toBeInViewport();
-  await manual.getByRole("button", { name: "Close" }).click();
+  await manual.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByTestId("start").click();
   await expect(page.getByTestId("hub-JPN")).toBeVisible();
+});
+
+test("tips close one at a time; the book says what each voyage carries", async ({ page }) => {
+  await page.goto("/?seed=e2e-tips");
+  await page.getByTestId("scenario-redsea_2023").click();
+  await page.getByTestId("start").click();
+  const tip = page.getByTestId("tip-offers");
+  await expect(tip).toContainText("Tip 1/");
+  await tip.getByRole("button", { name: "Next tip" }).click();
+  await expect(tip).toContainText("Tip 2/");
+  await expect(tip).toContainText("Where title passes");
+  await page.getByRole("button", { name: "Buy + ship" }).first().click();
+  await expect(page.getByTestId("voyage-cargo").first()).toContainText(/To load \d+ kbbl \w+ at/);
+  await expect(page.getByTestId("deal").first()).toContainText(/to receive|to deliver/);
+  await page.screenshot({ path: "test-results/book.png", fullPage: true });
+});
+
+test("an open-ended game has no end date and ends on request", async ({ page }) => {
+  await page.goto("/?seed=e2e-open");
+  await page.getByTestId("scenario-generated").click();
+  await page.getByLabel("Duration").selectOption("0");
+  await page.getByRole("button", { name: "Start open-ended game" }).click();
+  await expect(page.getByTestId("week")).toHaveText("1");
+  for (let i = 0; i < 3; i++) await page.getByTestId("next").click();
+  await expect(page.getByTestId("week")).toHaveText("4");
+  page.once("dialog", (d) => d.accept());
+  await page.getByTestId("end-game").click();
+  await expect(page.getByRole("heading", { name: "Game over" })).toBeVisible();
+  await expect(page.getByTestId("next")).toBeDisabled();
 });

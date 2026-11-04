@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { FUTURES, FUTURES_IDS, HUBS, ROUTES, contractPrice, isoDate, listedMonths, type Action, type FuturesId, type Game, type HubId } from "@laycan/engine";
+import { useState, type ReactNode } from "react";
+import { FUTURES, FUTURES_IDS, HUBS, ROSTER, ROUTES, contractPrice, isoDate, listedMonths, type Action, type Deal, type FuturesId, type Game, type HubId } from "@laycan/engine";
 import { kbbl, money, shortDate, signed } from "../format";
 import { BlendPanel, DivertControl } from "./Operations";
+import { Tips } from "./Tips";
 
 const STAGES = ["fixed", "loading", "sailing", "discharging", "done"] as const;
 
@@ -15,7 +16,8 @@ function Hedge({ game, act }: { game: Game; act: (a: Action) => void }) {
   const trade = (sign: 1 | -1) => act({ type: "futures", contract: fut.id, y: lm.y, m: lm.m, lots: sign * lots });
   return (
     <>
-      <h2 style={{ marginTop: 12 }}>Futures (hedges)</h2>
+      <h4>Futures positions</h4>
+      {game.book.futures.length === 0 && <div className="empty">No futures.</div>}
       {game.book.futures.map((f) => (
         <div className="item" key={f.id}>
           <b className={f.lots > 0 ? "pos" : "neg"}>{f.lots > 0 ? "Long" : "Short"} {Math.abs(f.lots)}</b> {FUTURES[f.contract].name} {f.y}-{String(f.m).padStart(2, "0")} · margin {money(f.margin)}{" "}
@@ -69,7 +71,6 @@ function Storage({ game, act }: { game: Game; act: (a: Action) => void }) {
   const leases = game.book.leases.filter((l) => l.endDay > game.day);
   return (
     <>
-      <h2 style={{ marginTop: 12 }}>Storage</h2>
       <div className="table-wrap">
         <table className="carry" aria-label="Carry economics">
           <thead>
@@ -132,80 +133,194 @@ function Storage({ game, act }: { game: Game; act: (a: Action) => void }) {
   );
 }
 
+const cptyName = (id: string) => ROSTER.find((c) => c.id === id)?.name ?? id;
+const day = (d: number) => shortDate(isoDate(d));
+
+/** Where title passes and what happens next, in plain words. */
+function dealStory(d: Deal, game: Game): { badge: string; badgeClass: string; text: string } {
+  const lay = `${day(d.laycan[0])}–${day(d.laycan[1])}`;
+  const v = d.voyageId ? game.book.voyages.find((x) => x.id === d.voyageId) : undefined;
+  const ship = v ? ` · ${v.id} ${v.from}→${v.to}` : "";
+  const P = contractPrice(d, game.market);
+  const value = money(d.qty * P);
+  if (d.status === "open") {
+    if (d.side === "buy") {
+      const text =
+        d.incoterm === "FOB"
+          ? `Loads at ${d.hub} (the seller's port) ${lay}, onto your ship${v ? ship : " · no ship yet: charter one"}`
+          : d.incoterm === "ITT"
+            ? `In-tank transfer to you at ${d.hub} ${lay}`
+            : `The seller delivers to you at ${d.hub} ${lay}`;
+      return { badge: "to receive", badgeClass: "stage-open", text };
+    }
+    const text =
+      d.incoterm === "FOB"
+        ? `The buyer lifts from your tank at ${d.hub} ${lay}`
+        : d.incoterm === "ITT"
+          ? `In-tank transfer from your tank at ${d.hub} ${lay}`
+          : `You deliver at ${d.hub} (the buyer's port) ${lay}${v ? ship : " · needs a cargo arriving there"}`;
+    return { badge: "to deliver", badgeClass: "stage-open", text };
+  }
+  const when = d.deliveryDay !== undefined ? day(d.deliveryDay) : "";
+  if (d.status === "delivered") {
+    const due = d.dueDay !== undefined ? ` by ${day(d.dueDay)}` : "";
+    const fixing = fixedShareText(d);
+    return d.side === "buy"
+      ? { badge: "received · unpaid", badgeClass: "stage-pending", text: `Title passed to you at ${d.hub} on ${when}. You pay ${value}${due}${fixing}` }
+      : { badge: "delivered · unpaid", badgeClass: "stage-pending", text: `Delivered to ${cptyName(d.cpty)} at ${d.hub} on ${when}. They pay ${value}${due}${fixing}` };
+  }
+  if (d.status === "settled") return { badge: "closed", badgeClass: "stage-closed", text: `${d.side === "buy" ? "Received" : "Delivered"} at ${d.hub} on ${when}; ${d.side === "buy" ? "paid" : "paid to you"} ${value} (${P.toFixed(2)} $/bbl)` };
+  return { badge: "cancelled", badgeClass: "stage-cancelled", text: d.note ?? "Cancelled" };
+}
+
+function fixedShareText(d: Deal): string {
+  if (d.pricing.kind === "fixed") return "";
+  const n = d.window?.length ?? 5;
+  return d.fixings.length < n ? ` (price still fixing: ${d.fixings.length}/${n} quotes, final amount may change)` : "";
+}
+
+function DealRow({ d, game }: { d: Deal; game: Game }) {
+  const st = dealStory(d, game);
+  const n = d.window?.length ?? (d.pricing.kind === "fixed" ? 1 : 5);
+  const k = d.pricing.kind === "fixed" ? 1 : d.fixings.length;
+  return (
+    <div className={`item deal ${d.side}`} data-testid="deal">
+      <b>{d.id}</b> {d.side === "buy" ? "Bought from" : "Sold to"} {cptyName(d.cpty)}: {kbbl(d.qty)} {d.product} {d.incoterm} {d.hub} <span className={`badge ${st.badgeClass}`}>{st.badge}</span>
+      <div className="sub story">{st.text}</div>
+      {d.status === "open" && (
+        <div className="sub">
+          priced {k}/{n} quotes · invoice price now {contractPrice(d, game.market).toFixed(2)} $/bbl
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Section({ title, count, children, testId }: { title: string; count?: number; children: ReactNode; testId?: string }) {
+  return (
+    <section className="book-section" data-testid={testId}>
+      <h3>
+        {title}
+        {count !== undefined && <span className="count">{count}</span>}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
 export function BookPanel({ game, act }: { game: Game; act: (a: Action) => void }) {
   const pos = game.openPositions();
-  const m = game.market;
   const tanks = game.book.cargoes.filter((c) => c.where === "tank");
   const exps = game.exposures();
+  const open = game.book.deals.filter((d) => d.status === "open");
+  const unpaid = game.book.deals.filter((d) => d.status === "delivered");
+  const closed = game.book.deals.filter((d) => d.status === "settled" || d.status === "cancelled").reverse();
+  const dealById = (id?: string) => (id ? game.book.deals.find((d) => d.id === id) : undefined);
   return (
     <div>
-      <h2>Physical deals</h2>
-      {pos.deals.length === 0 && <div className="empty">No open deals.</div>}
-      {pos.deals.map((d) => {
-        const n = d.window?.length ?? (d.pricing.kind === "fixed" ? 1 : 5);
-        const k = d.pricing.kind === "fixed" ? 1 : d.fixings.length;
-        return (
-          <div className="item" key={d.id} data-testid="deal">
-            <b>{d.id}</b> {d.side === "buy" ? "Bought" : "Sold"} {kbbl(d.qty)} {d.product} {d.incoterm} {d.hub} <span className="badge derived">{d.status}</span>
-            <div className="sub">
-              laycan {shortDate(isoDate(d.laycan[0]))}–{shortDate(isoDate(d.laycan[1]))} · priced {k}/{n} quotes · invoice price now {contractPrice(d, m).toFixed(2)} $/bbl
-              {d.voyageId ? ` · ${d.voyageId}` : d.side === "sell" && d.incoterm !== "FOB" && d.status === "open" ? " · needs a cargo here" : ""}
+      <Tips
+        id="book"
+        tips={[
+          <>
+            A deal moves from <b>to receive / to deliver</b> (title has not passed) to <b>unpaid</b> (title has passed at the hub shown; the invoice is due) to <b>closed</b> (paid). FOB passes title at the load port, DES on
+            arrival at the buyer's port, ITT inside a tank.
+          </>,
+          <>Voyages show what they carry and which purchase and sale they link. A ship with no sale discharges into tank at its destination, where you can sell spot, ship on, or match a later bid.</>,
+          <>Hedge with the futures month in which your barrels price or arrive: cargoes at sea are valued on the curve for their arrival date, so a matched hedge leaves little time-spread risk.</>,
+        ]}
+      />
+      <Section title="Physical deals" count={open.length + unpaid.length}>
+        <h4>Open: title not yet passed</h4>
+        {open.length === 0 && <div className="empty">None.</div>}
+        {open.map((d) => (
+          <DealRow key={d.id} d={d} game={game} />
+        ))}
+        <h4>Delivered, awaiting payment</h4>
+        {unpaid.length === 0 && <div className="empty">None.</div>}
+        {unpaid.map((d) => (
+          <DealRow key={d.id} d={d} game={game} />
+        ))}
+        {closed.length > 0 && (
+          <details>
+            <summary data-testid="closed-deals">Closed deals ({closed.length})</summary>
+            {closed.map((d) => (
+              <DealRow key={d.id} d={d} game={game} />
+            ))}
+          </details>
+        )}
+      </Section>
+      <Section title="Voyages" count={pos.voyages.length}>
+        {pos.voyages.length === 0 && <div className="empty">No ships chartered.</div>}
+        {pos.voyages.map((v) => {
+          const cargo = v.cargoId ? game.book.cargoes.find((c) => c.id === v.cargoId) : undefined;
+          const buy = dealById(v.purchaseId);
+          const sale = dealById(v.saleId);
+          const carrying = cargo
+            ? `Carrying ${kbbl(cargo.qty)} ${cargo.product} (${cargo.id})${cargo.qualityDiscount > 0 ? ", off-spec" : ""}`
+            : buy
+              ? `To load ${kbbl(buy.qtyNominal)} ${buy.product} at ${v.from}`
+              : `To load ${v.product ?? "product"} from your tank at ${v.from}`;
+          return (
+            <div className="item" key={v.id} data-testid="voyage">
+              <b>{v.id}</b> {v.cls} {v.routeId} {v.from}→{v.to} via {v.via} <span className="badge derived">{v.status}</span>
+              <div className="timeline">
+                {STAGES.map((s, i) => (
+                  <span key={s} className={STAGES.indexOf(v.status as (typeof STAGES)[number]) >= i ? "done" : ""} />
+                ))}
+              </div>
+              <div className="sub" data-testid="voyage-cargo">
+                <b>{carrying}</b> · bought {buy ? `${buy.id} from ${cptyName(buy.cpty)}` : "from your tank"} · {sale ? `sells ${sale.id} to ${cptyName(sale.cpty)} (${sale.incoterm} ${sale.hub})` : "no sale yet: discharges into tank"}
+              </div>
+              <div className="sub">
+                load {day(v.arriveLoad)}
+                {v.arriveDisch ? ` · discharge ${day(v.arriveDisch)}` : ` · ~${v.sailDays}d at sea`} · port hours {v.portHours.toFixed(0)}/{v.laytimeHours} laytime · demurrage ${(v.demurrageRate / 1e3).toFixed(0)}k/day
+                {v.divertedFrom ? ` · diverted from ${v.divertedFrom}` : ""}
+              </div>
+              {v.status === "sailing" && <DivertControl game={game} v={v} act={act} />}
+            </div>
+          );
+        })}
+      </Section>
+      <Section title="Cargo in tank" count={tanks.length}>
+        {tanks.length === 0 && <div className="empty">Nothing in storage.</div>}
+        {tanks.map((c) => (
+          <div className="item" key={c.id}>
+            <b>{c.id}</b> {kbbl(c.qty)} {c.product} at {c.hub}, since {day(c.sinceDay)}
+            {c.qualityDiscount > 0 && <span className="badge estimate"> off-spec −{c.qualityDiscount.toFixed(2)}</span>}
+            <div className="form-row" style={{ marginTop: 4 }}>
+              <button className="btn small" onClick={() => act({ type: "sellSpot", cargoId: c.id })}>
+                Sell spot now
+              </button>
+              {ROUTES.filter((r) => r.from === c.hub).map((r) => (
+                <button key={r.id} className="btn small" onClick={() => act({ type: "charter", routeId: r.id, laycanStart: game.day + 5, product: c.product })}>
+                  Ship on {r.id} → {r.to}
+                </button>
+              ))}
             </div>
           </div>
-        );
-      })}
-      <h2 style={{ marginTop: 12 }}>Voyages</h2>
-      {pos.voyages.length === 0 && <div className="empty">No ships at sea.</div>}
-      {pos.voyages.map((v) => (
-        <div className="item" key={v.id} data-testid="voyage">
-          <b>{v.id}</b> {v.cls} {v.routeId} {v.from}→{v.to} via {v.via} <span className="badge derived">{v.status}</span>
-          <div className="timeline">
-            {STAGES.map((s, i) => (
-              <span key={s} className={STAGES.indexOf(v.status as (typeof STAGES)[number]) >= i ? "done" : ""} />
+        ))}
+      </Section>
+      <Section title="Hedges and exposure" count={game.book.futures.length}>
+        <Hedge game={game} act={act} />
+        <h4>Exposure by price component</h4>
+        {exps.length === 0 && <div className="empty">No price exposure. Note: an unpriced floating purchase has none until its pricing window starts.</div>}
+        <table>
+          <tbody>
+            {exps.map((e) => (
+              <tr key={e.key}>
+                <td>{e.label}</td>
+                <td className={`num ${e.bbl >= 0 ? "pos" : "neg"}`}>{(e.bbl / 1000).toFixed(0)} kbbl</td>
+              </tr>
             ))}
-          </div>
-          <div className="sub">
-            load {shortDate(isoDate(v.arriveLoad))}
-            {v.arriveDisch ? ` · discharge ${shortDate(isoDate(v.arriveDisch))}` : ` · ~${v.sailDays}d at sea`} · port hours {v.portHours.toFixed(0)}/{v.laytimeHours} laytime · demurrage ${(v.demurrageRate / 1e3).toFixed(0)}k/day
-            {v.saleId ? ` · delivers ${v.saleId}` : " · no sale yet"}
-            {v.divertedFrom ? ` · diverted from ${v.divertedFrom}` : ""}
-          </div>
-          {v.status === "sailing" && <DivertControl game={game} v={v} act={act} />}
-        </div>
-      ))}
-      <h2 style={{ marginTop: 12 }}>Cargo in tank</h2>
-      {tanks.length === 0 && <div className="empty">Nothing in storage.</div>}
-      {tanks.map((c) => (
-        <div className="item" key={c.id}>
-          <b>{c.id}</b> {kbbl(c.qty)} {c.product} at {c.hub}
-          {c.qualityDiscount > 0 && <span className="badge estimate"> off-spec −{c.qualityDiscount.toFixed(2)}</span>}
-          <div className="form-row" style={{ marginTop: 4 }}>
-            <button className="btn small" onClick={() => act({ type: "sellSpot", cargoId: c.id })}>
-              Sell spot now
-            </button>
-            {ROUTES.filter((r) => r.from === c.hub).map((r) => (
-              <button key={r.id} className="btn small" onClick={() => act({ type: "charter", routeId: r.id, laycanStart: game.day + 5, product: c.product })}>
-                Ship on {r.id} → {r.to}
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-      <Hedge game={game} act={act} />
-      <Storage game={game} act={act} />
-      <BlendPanel game={game} act={act} />
-      <h2 style={{ marginTop: 12 }}>Exposure by price component</h2>
-      {exps.length === 0 && <div className="empty">No price exposure. Note: an unpriced floating purchase has none until its pricing window starts.</div>}
-      <table>
-        <tbody>
-          {exps.map((e) => (
-            <tr key={e.key}>
-              <td>{e.label}</td>
-              <td className={`num ${e.bbl >= 0 ? "pos" : "neg"}`}>{(e.bbl / 1000).toFixed(0)} kbbl</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </Section>
+      <Section title="Storage">
+        <Storage game={game} act={act} />
+      </Section>
+      <Section title="Blending">
+        <BlendPanel game={game} act={act} />
+      </Section>
     </div>
   );
 }

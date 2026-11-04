@@ -184,3 +184,26 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 12px; }
 .manual-body pre code { background: none; padding: 0; }
 .manual-body hr { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
 .manual-body a { color: var(--accent); }
+
+/* Book: sections, deal stages */
+.book-section { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-top: 12px; background: var(--panel); }
+.book-section:first-of-type { margin-top: 0; }
+.book-section > h3 { display: flex; align-items: center; gap: 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin: -10px -12px 8px; padding: 8px 12px; background: var(--accent-soft); border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0; }
+.book-section > h3 .count { font-size: 11px; background: var(--panel); border-radius: 999px; padding: 0 7px; color: var(--ink-2); letter-spacing: 0; }
+.book-section h4 { margin: 10px 0 4px; font-size: 12px; color: var(--ink-2); font-weight: 600; }
+.book-section h4:first-of-type { margin-top: 2px; }
+.book-section details { margin-top: 8px; }
+.item.deal.buy { border-left: 3px solid var(--accent); padding-left: 8px; }
+.item.deal.sell { border-left: 3px solid var(--paper); padding-left: 8px; }
+.badge.stage-open { background: var(--accent-soft); color: var(--accent); }
+.badge.stage-pending { background: var(--warn-soft); color: var(--warn); }
+.badge.stage-closed { background: var(--pos-soft); color: var(--pos); }
+.badge.stage-cancelled { background: var(--line-2); color: var(--ink-3); }
+
+/* Tips: one at a time, closable */
+.hint.tip { display: flex; gap: 8px; align-items: flex-start; }
+.tip-body { flex: 1; }
+.tip-count { display: inline-block; font-size: 11px; font-weight: 600; color: var(--accent); margin-right: 6px; }
+.tip-close { border: 0; background: transparent; color: var(--ink-2); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; border-radius: 4px; }
+.tip-close:hover { color: var(--ink); background: var(--panel); }
+.item .sub.story { color: var(--ink-2); }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Game } from "../../src/game";
+import { Game, RETAIN } from "../../src/game";
 import { isoDate } from "../../src/core/calendar";
 import { EPISODES, replayRows } from "../../src/params/episodes";
 import { voyagePosition, routeGeometry } from "../../src/world/geo";
@@ -71,5 +71,28 @@ describe("ship positions for the map", () => {
     expect(seen.length).toBeGreaterThan(5);
     expect(seen.every((p, i) => i === 0 || p >= seen[i - 1]!)).toBe(true);
     expect(routeGeometry(route, v.via).length).toBeGreaterThan(10);
+  });
+});
+
+describe("open-ended games", () => {
+  it("run past any fixed length, keep the saved state bounded, and end on request", () => {
+    const g = Game.create({ scenario: "generated", seed: "open", openEnded: true });
+    expect(g.state.openEnded).toBe(true);
+    for (let w = 0; w < 160 && !g.over; w++) g.advance();
+    expect(g.over).toBe(false);
+    expect(g.state.history.length).toBeLessThanOrEqual(RETAIN.historyRows);
+    expect(g.state.days.length).toBeLessThanOrEqual(RETAIN.dayRecords);
+    expect(g.state.news.length).toBeLessThanOrEqual(RETAIN.news);
+    expect(g.state.maxResidual).toBeLessThan(1e-4);
+    const s = g.end();
+    expect(g.over).toBe(true);
+    expect(s.pnl).toBeCloseTo(g.equity() - g.scenario.finance.equity.value, 6);
+    // the save survives a round trip
+    expect(Game.fromJSON(g.toJSON()).over).toBe(true);
+  });
+  it("is only offered for generated markets: replays keep their episode length", () => {
+    const g = Game.create({ scenario: "covid_2020", seed: "x", openEnded: true });
+    expect(g.state.openEnded).toBe(false);
+    expect(g.state.endDay - g.state.startDay).toBe(7 * g.scenario.weeks);
   });
 });

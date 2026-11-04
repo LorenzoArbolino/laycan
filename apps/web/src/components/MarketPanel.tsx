@@ -1,3 +1,4 @@
+import { Tips } from "./Tips";
 import { useState } from "react";
 import { CHOKEPOINT_INFO, FUTURES, FUTURES_IDS, HUB_INFO, HUBS, PRODUCTS, REGIONS, REGION_NAME, ROUTES, hubPrice, isoDate, listedMonths, perBbl, rowPrice, type Game } from "@laycan/engine";
 import { LineChart } from "./LineChart";
@@ -74,10 +75,16 @@ export function MarketPanel({ game }: { game: Game }) {
       )}
       {tab === "fundamentals" && (
         <>
-          <p className="hint">
-            Inventories and refinery runs against their 5-year seasonal normal. Low stocks lift cracks and a region's premium, steepen backwardation and pull in cargoes; outages cut refinery runs and drain stocks
-            over weeks.{g_kind(game)}
-          </p>
+          <Tips
+            id="stocks"
+            tips={[
+              <>
+                Inventories and refinery runs against their 5-year seasonal normal. Low stocks lift cracks and a region's premium, steepen backwardation and pull in cargoes; outages cut refinery runs and drain stocks
+                over weeks.{g_kind(game)}
+              </>,
+              <>Short regions bid for cargoes and long regions offer them: the Offers tab follows these stocks. A region that stays short is where delivered sales pay best.</>,
+            ]}
+          />
           <div className="table-wrap">
             <table aria-label="Regional fundamentals">
               <thead>
@@ -127,14 +134,14 @@ export function MarketPanel({ game }: { game: Game }) {
       )}
       {tab === "freight" && (
         <>
-          <p className="hint">
+          <div className="hint">
             Built bottom-up: time-charter earnings × voyage days (with ballast return) + bunkers + port and canal costs, plus war-risk premiums. Chokepoints:{" "}
             {Object.entries(m.choke).map(([k, v]) => (
               <span key={k} className={`badge ${v}`} style={{ marginRight: 4 }}>
                 {CHOKEPOINT_INFO[k as keyof typeof CHOKEPOINT_INFO].name}: {v}
               </span>
             ))}
-          </p>
+          </div>
           <div className="table-wrap">
             <table aria-label="Freight">
               <thead>

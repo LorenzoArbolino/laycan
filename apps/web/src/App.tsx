@@ -37,6 +37,7 @@ function seedFromUrl(): string | null {
 }
 
 function StartScreen({ onStart, resume, onManual }: { onStart: (scenario: string, seed: string, weeks?: number) => void; resume: Game | null; onManual: () => void }) {
+  // weeks = 0: open-ended (generated markets only)
   const [scenario, setScenario] = useState("generated");
   const [weeks, setWeeks] = useState(12);
   const episode = EPISODES.find((e) => e.id === scenario);
@@ -85,6 +86,7 @@ function StartScreen({ onStart, resume, onManual }: { onStart: (scenario: string
                   {w} weeks{w === 52 ? " (a year)" : ""}
                 </option>
               ))}
+              <option value={0}>Open-ended (stop when you like)</option>
             </select>
           </label>
         )}
@@ -92,7 +94,7 @@ function StartScreen({ onStart, resume, onManual }: { onStart: (scenario: string
           Read the manual
         </button>
         <button className="btn primary" onClick={() => onStart(scenario, seed, scenario === "generated" ? weeks : undefined)} data-testid="start">
-          Start {episodeWeeks}-week game
+          {scenario === "generated" && weeks === 0 ? "Start open-ended game" : `Start ${episodeWeeks}-week game`}
         </button>
         {resume && !resume.over && (
           <button className="btn" onClick={() => onStart("", "")}>
@@ -212,7 +214,7 @@ export function App() {
   const g = gameRef.current;
 
   const start = (scenario: string, seed: string, weeks?: number) => {
-    gameRef.current = scenario ? Game.create({ scenario, seed, weeks }) : saved;
+    gameRef.current = scenario ? Game.create({ scenario, seed, weeks: weeks || undefined, openEnded: weeks === 0 }) : saved;
     save(gameRef.current);
     refresh();
   };
@@ -248,7 +250,8 @@ export function App() {
     );
 
   const s = g.score();
-  const totalWeeks = Math.round((g.state.endDay - g.state.startDay) / 7);
+  const openEnded = !!g.state.openEnded;
+  const totalWeeks = openEnded ? Infinity : Math.round((g.state.endDay - g.state.startDay) / 7);
   const week = Math.min(totalWeeks, Math.floor((g.day - g.state.startDay) / 7) + 1);
   const b = g.breakdown();
   return (
@@ -263,7 +266,7 @@ export function App() {
         </div>
         <div className="kpi">
           <span className="label">Week</span>
-          <span className="value">{g.over ? "done" : `${week}/${totalWeeks}`}</span>
+          <span className="value" data-testid="week">{g.over ? "done" : openEnded ? `${week}` : `${week}/${totalWeeks}`}</span>
         </div>
         <div className="kpi">
           <span className="label">Equity</span>
@@ -306,17 +309,31 @@ export function App() {
         >
           New game
         </button>
+        {openEnded && !g.over && (
+          <button
+            className="btn small"
+            data-testid="end-game"
+            onClick={() => {
+              if (!confirm("End the game now and see your score? Open positions stay valued at today's marks.")) return;
+              gameRef.current!.end();
+              save(gameRef.current);
+              refresh();
+            }}
+          >
+            End game
+          </button>
+        )}
         <button className="btn primary" onClick={next} disabled={g.over || busy} data-testid="next">
-          {g.over ? "Scenario complete" : busy ? "Running…" : "Next week ▶"}
+          {g.over ? (openEnded ? "Game over" : "Scenario complete") : busy ? "Running…" : "Next week ▶"}
         </button>
       </header>
 
       {g.over && (
         <section className="panel" style={{ marginTop: 12 }}>
-          <h2>Scenario complete</h2>
+          <h2>{openEnded ? "Game over" : "Scenario complete"}</h2>
           <p>
             Return <b className={cls(s.returnPct)}>{s.returnPct.toFixed(1)}%</b> · max drawdown {money(s.maxDrawdown)} · risk-adjusted score <b>{s.riskAdjusted.toFixed(2)}</b> · {s.varBreachDays} days over VaR limit ·{" "}
-            {s.liquidityBreachDays} credit breaches. Seed <code>{g.state.seed}</code>: replay it, or try the other scenario with the same strategy.
+            {s.liquidityBreachDays} credit breaches{openEnded ? ` over ${week - 1} weeks` : ""}. Seed <code>{g.state.seed}</code>: replay it, or try another market with the same strategy.
           </p>
         </section>
       )}

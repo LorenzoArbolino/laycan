@@ -84,7 +84,12 @@ export interface GameOptions {
   scenario?: string;
   seed: string;
   weeks?: number;
+  /** generated markets only: no fixed end; the player ends the game with end() */
+  openEnded?: boolean;
 }
+
+/** In long games, keep this much history in the saved state (charts and saves stay small). */
+export const RETAIN = { historyRows: 780, dayRecords: 1100, news: 600 } as const;
 
 export interface DayRecord {
   day: number;
@@ -102,6 +107,8 @@ export interface GameState {
   scriptIdx: number;
   startDay: number;
   endDay: number;
+  /** no fixed end date (the player stops when they like) */
+  openEnded?: boolean;
   market: MarketState;
   book: Book;
   offers: Offer[];
@@ -202,7 +209,8 @@ export class Game {
       scenario: sc,
       scriptIdx: 0,
       startDay,
-      endDay: startDay + 7 * (opts.weeks ?? sc.weeks),
+      endDay: opts.openEnded && sc.kind === "generated" ? Number.MAX_SAFE_INTEGER : startDay + 7 * (opts.weeks ?? sc.weeks),
+      openEnded: !!opts.openEnded && sc.kind === "generated",
       market,
       book,
       offers: [],
@@ -327,6 +335,12 @@ export class Game {
   }
   get over(): boolean {
     return this.day >= this.state.endDay;
+  }
+
+  /** End the game today (open-ended games, or stopping early) and freeze the score. */
+  end(): Score {
+    if (!this.over) this.state.endDay = this.day;
+    return this.score();
   }
 
   // ---------------------------------------------------------------- accounting helpers
@@ -696,7 +710,10 @@ export class Game {
     }
     if (!this.over && (this.day - this.state.startDay) % 7 === 0) this.newOffers();
     this.syncRng();
-    return this.state.news.slice(from);
+    const fresh = this.state.news.slice(from);
+    const news = this.state.news;
+    if (news.length > RETAIN.news) news.splice(0, news.length - RETAIN.news);
+    return fresh;
   }
 
   stepDay(): DayRecord {
@@ -723,6 +740,9 @@ export class Game {
     addAttribution(st.attribution, this.dayAttr);
     const rec: DayRecord = { day: this.day, equity: e1, pnl: e1 - e0, attribution: this.dayAttr, residual };
     st.days.push(rec);
+    // long games: drop the oldest records (cumulative P&L, drawdown and attribution are kept)
+    if (st.days.length > RETAIN.dayRecords) st.days.splice(0, st.days.length - RETAIN.dayRecords);
+    if (st.history.length > RETAIN.historyRows) st.history.splice(0, st.history.length - RETAIN.historyRows);
     st.pending = emptyAttribution();
     st.lastEquity = e1;
     st.maxEquity = Math.max(st.maxEquity, e1);

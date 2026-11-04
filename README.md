@@ -10,7 +10,7 @@ Every dollar of P&L is attributed to flat price, crack, regional arbitrage, time
 
 | Mode | What it is |
 |---|---|
-| **Generated market** (default) | A realistic world with no real date or prices. Regime, Brent, cracks, freight, inventories and chokepoints are drawn from the calibrated model and run forward through a three-month burn-in. Every seed is a different market. Choose 8, 12, 26 or 52 weeks. |
+| **Generated market** (default) | A realistic world with no real date or prices. Regime, Brent, cracks, freight, inventories and chokepoints are drawn from the calibrated model and run forward through a three-month burn-in. Every seed is a different market. Choose 8, 12, 26 or 52 weeks, or play open-ended and stop when you like. |
 | **Historical replay** | Real US benchmark prices (Brent, US Gulf cracks, NY Harbor spreads) and US stocks, day by day from EIA data. Other hubs, freight and curves are modelled around them, and the period's main events are scripted. Each episode runs for as long as the event matters: Financial crisis 2008 (24 weeks), Abqaiq 2019 (19), COVID 2020 (18), Texas freeze and Colonial 2021 (17), Ukraine 2022 (20), diesel squeeze and embargo 2022-23 (20), Red Sea 2023-24 (14), Iran war 2026 (26). |
 
 Games are seeded and deterministic: the same seed and actions give identical results on every platform, and the market path does not depend on what the player does.

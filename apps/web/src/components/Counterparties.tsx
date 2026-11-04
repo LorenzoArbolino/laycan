@@ -1,12 +1,19 @@
+import { Tips } from "./Tips";
 import { ROSTER, defaultProbability, type Game } from "@laycan/engine";
 
 export function CounterpartiesPanel({ game }: { game: Game }) {
   return (
     <div>
-      <p className="hint">
-        Who you trade with. Ratings drive default risk on open-account sales (higher in stressed markets); reliability drives late and off-spec deliveries. Relationships improve when deals settle and suffer when you fail
-        to lift or deliver: good relationships bring more offers and better prices, bad ones close the door.
-      </p>
+      <Tips
+        id="cpty"
+        tips={[
+          <>
+            Who you trade with. Ratings drive default risk on open-account sales (higher in stressed markets); reliability drives late and off-spec deliveries. Relationships improve when deals settle and suffer when you
+            fail to lift or deliver: good relationships bring more offers and better prices, bad ones close the door.
+          </>,
+          <>A sale on open account carries the buyer's default risk; a sale paid by letter of credit does not. Weaker names often bid a better premium: that is the price of the risk you take.</>,
+        ]}
+      />
       <div className="table-wrap">
         <table aria-label="Counterparties">
           <thead>

@@ -1,3 +1,4 @@
+import { Tips } from "./Tips";
 import { useState } from "react";
 import { BLEND_HUBS, COMPONENT_DATA, COMPONENTS, type Action, type ComponentId, type Game, type HubId, type Recipe, type Voyage } from "@laycan/engine";
 import { money, signed } from "../format";
@@ -64,11 +65,16 @@ export function BlendPanel({ game, act }: { game: Game; act: (a: Action) => void
   const optimalCost = q.optimal ? game.blendQuote(hub).cost : null;
   return (
     <>
-      <h2 style={{ marginTop: 12 }}>Blending</h2>
-      <p className="hint" style={{ marginTop: 6 }}>
-        Mix refinery components in your leased tank to make finished gasoline. Octane, vapour pressure, sulphur, aromatics, olefins, benzene and oxygen must all meet the grade. Cheap components (butane,
-        naphtha) are volatile or low in octane; octane carriers are expensive. Press <b>Optimise</b> to see what the linear program would do, then try to beat it.
-      </p>
+      <Tips
+        id="blend"
+        tips={[
+          <>
+            Mix refinery components in your leased tank to make finished gasoline. Octane, vapour pressure, sulphur, aromatics, olefins, benzene and oxygen must all meet the grade. Cheap components (butane, naphtha) are
+            volatile or low in octane; octane carriers are expensive. Press <b>Optimise</b> to see what the linear program would do, then try to beat it.
+          </>,
+          <>Winter grades allow more vapour pressure, so cheap butane fits in: the blending margin is usually best from October to March.</>,
+        ]}
+      />
       <div className="form-row">
         <label className="field">
           Hub
